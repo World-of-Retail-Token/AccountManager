@@ -186,6 +186,9 @@ class Buterin {
                             this.db.setGlobalStats(deposit, (BigInt(withdrawal) + bnAmount).toString());
                         }
 
+                        // Delete pending record for current user
+                        this.db.deletePending(userId);
+
                         // insert transaction record
                         this.db.insertWithdrawalTransaction(userId, bnAmount.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
 

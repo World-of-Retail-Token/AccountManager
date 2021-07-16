@@ -23,7 +23,10 @@ class Satoshi {
 
     // Coin name
     coin;
-    
+
+    // Backend unlocking passphrase
+    unlock_password;
+
     satoshiToCoins(sat) {
         const s = sat.toString().padStart(this.coin_decimals + 1, "0");
         return s.slice(0, -this.coin_decimals) + "." + s.slice(-this.coin_decimals).replace(/\.?0+$/, "");
@@ -52,6 +55,9 @@ class Satoshi {
 
         // Remember coin name
         this.coin = config.coin;
+
+        // Remember passphrase
+        this.unlock_password = config.unlock_password;
 
         // Polling task
         this.backend_polling = setInterval(async () => {
@@ -127,6 +133,24 @@ class Satoshi {
         this.pending_processing = setInterval(async () => {
             const pending = this.db.getPending();
             if (!pending) return;
+
+            if (this.unlock_password) {
+                // unlock wallet
+                try {
+                    await this.backend.walletPassphrase({
+                        passphrase: this.unlock_password,
+                        timeout: 300
+                    });
+                } catch(e) {
+                    // Fatal error here, administrator's involvement is necessary
+                    console.log('Unable to unlock wallet');
+                    console.log(e);
+                    clearInterval(this.backend_polling);
+                    clearInterval(this.pending_processing);
+                    console.log('Timers have been halted to prevent futher unintended consequences.');
+                }
+            }
+
             for (const {userId, amount, address} of pending) {
                 const bnAmount = BigInt(BigInt(amount));
                 const real_amount = this.satoshiToCoins(bnAmount);

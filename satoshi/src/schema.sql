@@ -7,7 +7,10 @@ CREATE TABLE IF NOT EXISTS prefix_addresses(
 );
 
 -- No ambiguous associations are allowed
-CREATE INDEX IF NOT EXISTS prefix_addresses_uniqualizer ON prefix_addresses(address);
+CREATE UNIQUE INDEX IF NOT EXISTS prefix_addresses_user_uniqualizer ON prefix_addresses(userId);
+
+-- No ambiguous associations are allowed
+CREATE UNIQUE INDEX IF NOT EXISTS prefix_addresses_address_uniqualizer ON prefix_addresses(address);
 
 -- Transaction log
 CREATE TABLE IF NOT EXISTS prefix_transactions(

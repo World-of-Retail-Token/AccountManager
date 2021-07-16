@@ -1,0 +1,13 @@
+{
+  "name": "buterin-proxy",
+  "version": "1.0.0",
+  "description": "Accounting proxy for ethereum-like (i.e. Ethereum-derived) cryptocurrency daemons",
+  "main": "index.js",
+  "dependencies": {
+    "better-sqlite3": "^7.4.1",
+    "bip39": "^3.0.4",
+    "ethereumjs-util": "^7.1.0",
+    "hdkey": "^2.0.1",
+    "web3": "^1.4.0"
+  }
+}

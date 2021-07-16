@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS prefix_withdrawal_transactions(
 );
 
 -- Disallow duplicate transaction log records
-CREATE UNIQUE INDEX IF NOT EXISTS prefix_withdrawal_transactions_uniquializer ON prefix_withdrawal_transactions(txHash, userId);
+CREATE UNIQUE INDEX IF NOT EXISTS prefix_withdrawal_transactions_uniquializer ON prefix_withdrawal_transactions(txHash);
 
 -- Pending payments
 CREATE TABLE IF NOT EXISTS prefix_pending(

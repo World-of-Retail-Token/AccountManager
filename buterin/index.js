@@ -141,10 +141,6 @@ class Buterin {
                 if (!pending) return;
 
                 for (const pending of pending_records) {
-                    const {address, idx} = this.db.getAddress(pending.userId);
-                    const addrHDProvider = this.getHDProvider(idx);
-                    if (addrHDProvider.getAddress() != address)
-                        throw new Error('Sanity check failure: derived address mismatch');
 
                     // Get gas price and calculate total gas value
                     const nonce = await web3.eth.getTransactionCount(this.root_provider.getAddress());
@@ -164,7 +160,7 @@ class Buterin {
                     };
 
                     // Sign transaction
-                    const signed = await addrHDProvider.signTransaction(transactionObject);
+                    const signed = await this.root_provider.signTransaction(transactionObject);
 
                     // Send and wait for confirmation
                     const receipt = await this.backend.sendSignedTransaction(signed.raw);

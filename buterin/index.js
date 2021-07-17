@@ -18,6 +18,9 @@ class Buterin {
     // Mnemonic string
     mnemonic;
     
+    // Web3 provider
+    provider;
+    
     // Root account HD provider
     root_provider;
 
@@ -25,7 +28,7 @@ class Buterin {
     coin;
 
     getHDProvider(index) {
-        return new Web3HDWalletProvider(this.mnemonic, this.backend, index);
+        return new Web3HDWalletProvider(this.mnemonic, this.provider, index);
     }
 
     constructor(config) {
@@ -34,8 +37,10 @@ class Buterin {
 
         // Init frontend database
         this.db = new Database(config);
+
         // Init backend RPC accessor class
-        this.backend = new Web3.providers.HttpProvider(config.web3_url);
+        this.provider = new Web3.providers.HttpProvider(config.web3_url);
+        this.backend = new Web3(this.provider);
 
         // Remember limits
         this.minimum_amount = BigInt(Web3.utils.toWei((config.minimum_amount || 0.0001).toString()));

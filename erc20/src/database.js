@@ -40,9 +40,11 @@ class Database {
         //
         // Selection
         this.select_awaiting_deposit_userid = this.db.prepare('SELECT * FROM ' + config.coin + '_awaiting_deposits WHERE amount = ?');
-        this.select_awaiting_deposits = this.db.prepare('SELECT * FROM ' + config.coin + '_awaiting_deposits WHERE userId = ?');
+        this.select_awaiting_deposits_for_userid = this.db.prepare('SELECT * FROM ' + config.coin + '_awaiting_deposits WHERE userId = ?');
+        this.select_awaiting_deposits = this.db.prepare('SELECT * FROM ' + config.coin + '_awaiting_deposits');
         this.transaction_exists = this.db.prepare('SELECT EXISTS (SELECT entryId FROM ' + config.coin + '_transactions WHERE txHash = ?) as found');
         this.select_transactions = this.db.prepare('SELECT * FROM ' + config.coin + '_transactions WHERE userId = @userId ORDER BY entryId DESC LIMIT 10 OFFSET @offset');
+        this.select_top_block = this.db.prepare('SELECT COALESCE(max(blockHeight), -1) AS top_block FROM ' + config.coin + '_transactions');
         this.select_withdrawal_transactions = this.db.prepare('SELECT * FROM ' + config.coin + '_withdrawal_transactions WHERE userId = @userId ORDER BY entryId DESC LIMIT 10 OFFSET @offset');
         this.select_pending = this.db.prepare('SELECT * FROM ' + config.coin + '_pending');
         this.select_account_pending = this.db.prepare('SELECT * FROM ' + config.coin + '_pending WHERE userId = ?');
@@ -68,7 +70,15 @@ class Database {
     }
 
     getAwaitingDepositsForId(userId) {
-        return this.select_awaiting_deposits.all(userId);
+        return this.select_awaiting_deposits_for_userid.all(userId);
+    }
+
+    getAwaitingDeposits() {
+        const records = this.select_awaiting_deposits.all();
+        let results = new Map();
+        for (const {amount, userId} of records)
+            results.set(BigInt(amount), userId);
+        return results;
     }
 
     checkTransactionExists(txHash) {
@@ -77,6 +87,10 @@ class Database {
 
     getTransactions(userId, offset) {
         return this.select_transactions.all({ userId : userId, offset : offset || 0 });
+    }
+
+    getTopBlock() {
+        return this.select_top_block.get().top_block;
     }
 
     getWithdrawalTransactions(userId, offset) {

@@ -72,7 +72,7 @@ class Buterin {
 
                     // Get gas price and calculate total gas value
                     const nonce = await web3.eth.getTransactionCount(address);
-                    const estimatedGas = await this.backend.eth.estimateGas({ from: address, nonce: nonce, to: this.root_provider.getAddress(), value: addressBalance });
+                    const estimatedGas = await this.backend.eth.estimateGas({ from: address, nonce: Web3.utils.toHex(nonce), to: this.root_provider.getAddress(), value: Web3.utils.toHex(addressBalance) });
                     const gasPrice = await this.backend.eth.getGasPrice();
                     const gasValue = BigInt(estimatedGas) * BigInt(gasPrice);
                     const bnAmount = BigInt(addressBalance) - gasValue;
@@ -80,9 +80,9 @@ class Buterin {
                     // Transaction fields
                     const transactionObject = {
                         from: address,
-                        nonce: nonce,
+                        nonce: Web3.utils.toHex(nonce),
                         to: this.root_provider.getAddress(),
-                        value: bnAmount.toString(),
+                        value: Web3.utils.toHex(bnAmount.toString()),
                         gasPrice: '0x' + new web3.utils.BN(gasPrice).toString('hex'),
                         gas: '0x' + new web3.utils.BN(estimatedGas).toString('hex')
                     };
@@ -144,9 +144,9 @@ class Buterin {
 
                     // Get gas price and calculate total gas value
                     const nonce = await web3.eth.getTransactionCount(this.root_provider.getAddress());
-                    const estimatedGas = await this.backend.eth.estimateGas({ from: this.root_provider.getAddress(), nonce: Web3.utils.toHex(nonce), to: pending.address, value: pending.amount });
+                    const estimatedGas = await this.backend.eth.estimateGas({ from: this.root_provider.getAddress(), nonce: Web3.utils.toHex(nonce), to: pending.address, value: Web3.utils.toHex(pending.amount) });
                     const gasPrice = await this.backend.eth.getGasPrice();
-                    const gasValue = BigInt(estimatedGas) * BigInt(gasPrice);
+                    const gasValue = BigInt((estimatedGas * 1.2) | 0) * BigInt(gasPrice);
                     const bnAmount = BigInt(pending.amount) - gasValue;
 
                     // Transaction fields
@@ -154,9 +154,9 @@ class Buterin {
                         from: this.root_provider.getAddress(),
                         nonce: Web3.utils.toHex(nonce),
                         to: pending.address,
-                        value: bnAmount.toString(),
+                        value: Web3.utils.toHex(bnAmount.toString()),
                         gasPrice: '0x' + new web3.utils.BN(gasPrice).toString('hex'),
-                        gas: '0x' + new web3.utils.BN(estimatedGas).toString('hex')
+                        gas: '0x' + new web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex')
                     };
 
                     // Sign transaction

@@ -246,7 +246,11 @@ class Satoshi {
      */
     getAccountInfo(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getAccountStats(userId)
+        const {deposit, withdrawal} = this.db.getAccountStats(userId)
+        return {
+            deposit: this.satoshiToCoins(deposit),
+            withdrawal: this.satoshiToCoins(withdrawal)
+        };
     }
 
     /**

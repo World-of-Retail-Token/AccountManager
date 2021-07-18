@@ -325,7 +325,11 @@ class ERC20 {
      */
     getAccountInfo(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getAccountStats(userId)
+        const {deposit, withdrawal} = this.db.getAccountStats(userId)
+        return {
+            deposit: this.fromBigInt(deposit),
+            withdrawal: this.fromBigInt(withdrawal)
+        };
     }
 
     /**

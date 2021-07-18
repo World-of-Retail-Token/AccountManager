@@ -1,0 +1,12 @@
+{
+  "name": "AccountManager",
+  "version": "1.0.0",
+  "description": "Accounting server for various cryptocoins",
+  "main": "index.js",
+  "dependencies": {
+    "json-rpc-2.0": "^0.2.16"
+  },
+ "scripts": {
+    "postinstall": "(cd buterin && npm install); (cd erc20 && npm install); (cd satoshi && npm install)"
+  }
+}

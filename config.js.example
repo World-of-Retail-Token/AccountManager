@@ -1,0 +1,28 @@
+'use strict';
+
+const coins = [
+    {
+        name: 'BTC',
+        type: 'Satoshi',
+        options: {
+            coin: 'BTC',
+            coin_denomination: 8,
+            database_path: './database.db',
+            backend_options: {
+                host: '127.0.0.1',
+                port: 7332,
+                username: 'bitcoinrpc',
+                password: 'password',
+                version: `${Number.MAX_SAFE_INTEGER}.0.0`
+            },
+            minimum_amount: 0.00001,
+            minimum_confirmations: 3,
+        }
+    }
+];
+
+module.exports = {
+    rpchost: '127.0.0.1',
+    rpcport: 8081,
+    coins: coins
+};

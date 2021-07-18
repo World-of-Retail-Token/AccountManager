@@ -15,7 +15,7 @@ const { rpcport, rpchost, coins } = require('./config');
 // Init coin proxies
 const backends = new Map();
 for (const coin of coins) {
-    backends.set(coin.name, new proxy_classes[coin.type](coin.config));
+    backends.set(coin.name, new proxy_classes[coin.type](coin.options));
 }
 
 // Init processing timers
@@ -56,7 +56,7 @@ function getBackend(coin) {
 const server = new JSONRPCServer();
 
 // Set handlers
-server.addMethod('setDeposit', (coin, user, amount) => {
+server.addMethod('setDeposit', ([coin, user, amount]) => {
     const backend = getBackend(coin);
     switch (backend.getDistinction()) {
         case 'address': return backend.getAddress(user);
@@ -65,12 +65,12 @@ server.addMethod('setDeposit', (coin, user, amount) => {
         default: throw new Error('Unknown distinction type');
     }
 });
-server.addMethod('getProxyInfo', (coin) => getBackend(coin).getProxyInfo());
-server.addMethod('getStats', (coin, user) => getBackend(coin).getAccountInfo(user));
-server.addMethod('listDeposits', (coin, user) => getBackend(coin).getAccountDeposits(user));
-server.addMethod('listWithdrawals', (coin, user) => getBackend(coin).getAccountWithdrawals(user));
-server.addMethod('listPending', (coin, user) => getBackend(coin).getAccountPending(user));
-server.addMethod('setPending', (coin, user, address, amount) => getBackend(coin).setAccountPending(user, address, amount));
+server.addMethod('getProxyInfo', ([coin]) => getBackend(coin).getProxyInfo());
+server.addMethod('getStats', ([coin, user]) => getBackend(coin).getAccountInfo(user));
+server.addMethod('listDeposits', ([coin, user]) => getBackend(coin).getAccountDeposits(user));
+server.addMethod('listWithdrawals', ([coin, user]) => getBackend(coin).getAccountWithdrawals(user));
+server.addMethod('listPending', ([coin, user]) => getBackend(coin).getAccountPending(user));
+server.addMethod('setPending', ([coin, user, address, amount]) => getBackend(coin).setAccountPending(user, address, amount));
 
 // TODO: More methods
 

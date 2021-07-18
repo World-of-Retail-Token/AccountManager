@@ -30,8 +30,6 @@ class Database {
 
         // better-sqlite3 instance
         this.db = require('better-sqlite3')(config.database_path, config.database_options || {});
-        
-        console.log(schema);
 
         // Init schema
         this.db.exec(schema);

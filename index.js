@@ -18,6 +18,17 @@ for (const coin of coins) {
     backends.set(coin.name, new proxy_classes[coin.type](coin.config));
 }
 
+// Init processing timers
+setInterval(async() => {
+    for (const backend of backends.values())
+        await backend.pollBackend();
+}, 60000);
+
+setInterval(async() => {
+    for (const backend of backends.values())
+        await backend.processPending();
+}, 60000);
+
 function getBackend(coin) {
     const backend = backends.get(coin);
     if (!backend)

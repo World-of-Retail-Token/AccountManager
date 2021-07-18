@@ -69,7 +69,7 @@ server.addMethod('getProxyInfo', ([coin]) => getBackend(coin).getProxyInfo());
 server.addMethod('getStats', ([coin, user]) => getBackend(coin).getAccountInfo(user));
 server.addMethod('listDeposits', ([coin, user, skip]) => getBackend(coin).getAccountDeposits(user, skip));
 server.addMethod('listWithdrawals', ([coin, user, skip]) => getBackend(coin).getAccountWithdrawals(user, skip));
-server.addMethod('listPending', ([coin, user]) => getBackend(coin).getAccountPending(user));
+server.addMethod('getPending', ([coin, user]) => getBackend(coin).getAccountPending(user));
 server.addMethod('setPending', ([coin, user, address, amount]) => getBackend(coin).setAccountPending(user, address, amount));
 
 // TODO: More methods

@@ -270,6 +270,10 @@ class ERC20 {
         this.contract_address = config.contract_address;
     }
 
+    getDistinction() {
+        return 'amount';
+    }
+
     getProxyInfo() {
         // Global transfer statistics
         const {deposit, withdrawal} = this.db.getGlobalStats();
@@ -277,7 +281,7 @@ class ERC20 {
         return {
             coinType: 'erc20',
             coinDecimals: this.decimals,
-            distinction: 'amount',
+            distinction: this.getDistinction(),
             globalStats: {
                 deposit: this.fromBigInt(deposit),
                 withdrawal: this.fromBigInt(withdrawal)

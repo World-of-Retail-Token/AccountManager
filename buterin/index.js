@@ -230,6 +230,10 @@ class Buterin {
         this.coin = config.coin;
     }
 
+    getDistinction() {
+        return 'address';
+    }
+
     getProxyInfo() {
         // Global transfer statistics
         const {deposit, withdrawal} = this.db.getGlobalStats();
@@ -237,7 +241,7 @@ class Buterin {
         return {
             coinType: 'buterin',
             coinDecimals: 18,
-            distinction: 'address',
+            distinction: this.getDistinction(),
             globalStats: {
                 deposit: Web3.utils.fromWei(deposit, 'Ether'),
                 withdrawal: Web3.utils.fromWei(withdrawal, 'Ether')

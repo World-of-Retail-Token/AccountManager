@@ -207,6 +207,10 @@ class Satoshi {
         }, 60000);
     }
 
+    getDistinction() {
+        return 'address';
+    }
+
     getProxyInfo() {
         // Global transfer statistics
         const {deposit, withdrawal} = this.db.getGlobalStats();
@@ -214,7 +218,7 @@ class Satoshi {
         return {
             coinType: 'satoshi',
             coinDecimals: this.coin_decimals,
-            distinction: 'address',
+            distinction: this.getDistinction(),
             globalStats: {
                 deposit: this.satoshiToCoins(deposit),
                 withdrawal: this.satoshiToCoins(withdrawal)

@@ -49,10 +49,6 @@ class ERC20 {
     db;
     // Backend client
     backend;
-    // Backend polling timer
-    backend_polling;
-    // Pending processing timer
-    pending_processing;
 
     // Limits
     minimum_amount;
@@ -66,18 +62,185 @@ class ERC20 {
     // Root account HD provider
     root_provider;
 
+    // Error object
+    error = null;
+
     // Coin name
     coin;
 
+    /**
+     * Convert decimal string or float value to bigint representation
+     * @amount Value to be converted
+     */
     toBigInt(amount) {
         let [ints, decis] = String(amount.toString()).split(".").concat("");
         decis = decis.padEnd(BigDecimal.decimals, "0");
         return BigInt(ints + decis);
     }
 
+    /**
+     * Convert bigint representation to decimal string value
+     * @amount Value to be converted
+     */
     fromBigInt(units) {
         const s = units.toString().padStart(this.token_decimals + 1, "0");
         return s.slice(0, -this.token_decimals) + "." + s.slice(-this.token_decimals).replace(/\.?0+$/, "");
+    }
+
+    async pollBackend() {
+
+        // If there was an error then
+        //  just return it and do nothing
+        if (this.error !== null) {
+            return this.error;
+        }
+
+        try {
+            // Get list of awaiting deposits
+            const awaitingDeposits = this.db.getAwaitingDeposits();
+            if (0 == awaitingDeposits.size())
+                return;
+
+            // Block after last scanned block height
+            const fromBlock = this.db.getTopBlock() + 1;
+
+            const incoming = await listERC20Transactions(this.backend, this.contract_address, this.token_decimals, this.root_provider.getAddress(), fromBlock);
+            if (0 == incoming.length)
+                return;
+
+            // Iterate through new token transactions
+            for (const record of incoming) {
+                // Ignore spam deposits
+                const amount_in_units = toBigInt(record.amount);
+                if (amount_in_units < this.minimum_amount || !awaitingDeposits.has(amount_in_units))
+                    continue;
+
+                // Amount is a key for user identifier
+                const userId = awaitingDeposits.get(amount_in_units);
+                const txHash = Buffer.from(record.transactionHash.slice(2), 'hex');
+                const blockHash = Buffer.from(record.blockHash.slice(2), 'hex');
+
+                // Apply database changes
+                this.db.makeTransaction(() => {
+
+                    // Update account transfer amounts
+                    {
+                        let {deposit, withdrawal} = this.db.getAccountStats(userId);
+                        this.db.setAccountStats(userId, (BigInt(deposit) + amount_in_units).toString(), withdrawal);
+                    }
+
+                    // Update global transfer amounts
+                    {
+                        let {deposit, withdrawal} = this.db.getGlobalStats();
+                        this.db.setGlobalStats((BigInt(deposit) + amount_in_units).toString(), withdrawal);
+                    }
+
+                    // Delete awaiting deposit record
+                    this.db.deleteAwaitingDeposit(amount_in_units.toString());
+
+                    // insert transaction record
+                    this.db.insertTransaction(userId, amount_in_units.toString(), txHash, blockHash, record.blockNumber, record.timestamp);
+
+                })();
+
+                console.log('Processed deposit transaction %s (%f %s) for account %s', record.transactionHash, record.amount, this.coin, userId.toString('hex'));
+            }
+        }
+        catch(e) {
+            // Fatal error, administrator's involvement is required
+            console.log('Fatal error while processing deposits');
+            console.log(e);
+
+            this.error = e;
+            return e;
+        }
+    }
+
+    async processPending() {
+
+        // If there was an error then
+        //  just return it and do nothing
+        if (this.error !== null) {
+            return this.error;
+        }
+
+        try {
+            const pending = this.db.getPending();
+            if (!pending) return;
+
+            for (const pending of pending_records) {
+                // Get gas price and nonce
+                const nonce = await web3.eth.getTransactionCount(this.root_provider.getAddress());
+                const gasPrice = await this.backend.eth.getGasPrice();
+
+                // ERC20 contract interface
+                const contract = new web3.eth.Contract(standardAbi, this.contract_address, {from: this.root_provider.getAddress()});
+
+                // Transaction fields
+                let transactionObject = {
+                    data: contract.methods.transfer(pending.address, Web3.utils.toHex(pending.amount)).encodeABI(),
+                    from: this.root_provider.getAddress(),
+                    nonce: Web3.utils.toHex(nonce),
+                    to: this.contract_address,
+                    value: "0x0"
+                };
+
+                // Estimate used gas
+                const estimatedGas = await this.backend.eth.estimateGas(transactionObject);
+
+                // Set gas price and limit
+                transactionObject.gasPrice = new web3.utils.BN(gasPrice).toString('hex');
+                transactionObject.gas = new web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex');
+
+                // Sign transaction
+                const signed = await this.root_provider.signTransaction(transactionObject);
+
+                // Send and wait for confirmation
+                const receipt = await this.backend.sendSignedTransaction(signed.raw);
+
+                // Block data object
+                const block = await this.backend.eth.getBlock(receipt.blockNumber);
+
+                // Convert hashes to buffers
+                const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
+                const blockHash = Buffer.from(receipt.blockHash.slice(2), 'hex');
+
+                const bnAmount = BigInt(pending.amount);
+
+                // Apply database changes
+                this.db.makeTransaction(() => {
+
+                    // Update account transfer amounts
+                    {
+                        let {deposit, withdrawal} = this.db.getAccountStats(userId);
+                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + bnAmount).toString());
+                    }
+
+                    // Update global transfer amounts
+                    {
+                        let {deposit, withdrawal} = this.db.getGlobalStats();
+                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + bnAmount).toString());
+                    }
+
+                    // Delete pending record for current user
+                    this.db.deletePending(userId);
+
+                    // insert transaction record
+                    this.db.insertWithdrawalTransaction(userId, bnAmount.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
+
+                })();
+
+                console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, this.fromBigInt(bnAmount), this.coin, userId.toString('hex'));
+            }
+        }
+        catch(e) {
+            // Fatal error, administrator's involvement is required
+            console.log('Fatal error while processing pending withdrawals');
+            console.log(e);
+
+            this.error = e;
+            return e;
+        }
     }
 
     constructor(config) {
@@ -102,162 +265,36 @@ class ERC20 {
 
         // Remember coin name
         this.coin = config.coin;
-        
+
         // Remember contract address
         this.contract_address = config.contract_address;
-
-        // Polling task
-        this.backend_polling = setInterval(async () => {
-            try {
-                // Get list of awaiting deposits
-                const awaitingDeposits = this.db.getAwaitingDeposits();
-                if (0 == awaitingDeposits.size())
-                    return;
-
-                // Block after last scanned block height
-                const fromBlock = this.db.getTopBlock() + 1;
-
-                const incoming = await listERC20Transactions(this.backend, this.contract_address, this.token_decimals, this.root_provider.getAddress(), fromBlock);
-                if (0 == incoming.length)
-                    return;
-
-                // Iterate through new token transactions
-                for (const record of incoming) {
-                    // Ignore spam deposits
-                    const amount_in_units = toBigInt(record.amount);
-                    if (amount_in_units < this.minimum_amount || !awaitingDeposits.has(amount_in_units))
-                        continue;
-
-                    // Amount is a key for user identifier
-                    const userId = awaitingDeposits.get(amount_in_units);
-                    const txHash = Buffer.from(record.transactionHash.slice(2), 'hex');
-                    const blockHash = Buffer.from(record.blockHash.slice(2), 'hex');
-
-                    // Apply database changes
-                    this.db.makeTransaction(() => {
-
-                        // Update account transfer amounts
-                        {
-                            let {deposit, withdrawal} = this.db.getAccountStats(userId);
-                            this.db.setAccountStats(userId, (BigInt(deposit) + amount_in_units).toString(), withdrawal);
-                        }
-
-                        // Update global transfer amounts
-                        {
-                            let {deposit, withdrawal} = this.db.getGlobalStats();
-                            this.db.setGlobalStats((BigInt(deposit) + amount_in_units).toString(), withdrawal);
-                        }
-
-                        // Delete awaiting deposit record
-                        this.db.deleteAwaitingDeposit(amount_in_units.toString());
-
-                        // insert transaction record
-                        this.db.insertTransaction(userId, amount_in_units.toString(), txHash, blockHash, record.blockNumber, record.timestamp);
-
-                    })();
-
-                    console.log('Processed deposit transaction %s (%f %s) for account %s', record.transactionHash, record.amount, this.coin, userId.toString('hex'));
-                }
-            }
-            catch(e) {
-                // Fatal error, administrator's involvement is required
-                console.log('Fatal error while processing deposits');
-                console.log(e);
-                // No futher processing is done automatically
-                clearInterval(this.backend_polling);
-                clearInterval(this.pending_processing);
-                console.log('Timers have been halted to prevent unintended consequences');
-            }
-        }, 60000);
-
-        // Pending processing task
-        this.pending_processing = setInterval(async () => {
-            try {
-                const pending = this.db.getPending();
-                if (!pending) return;
-
-                for (const pending of pending_records) {
-                    // Get gas price and nonce
-                    const nonce = await web3.eth.getTransactionCount(this.root_provider.getAddress());
-                    const gasPrice = await this.backend.eth.getGasPrice();
-
-                    // ERC20 contract interface
-                    const contract = new web3.eth.Contract(standardAbi, this.contract_address, {from: this.root_provider.getAddress()});
-
-                    // Transaction fields
-                    let transactionObject = {
-                        data: contract.methods.transfer(pending.address, Web3.utils.toHex(pending.amount)).encodeABI(),
-                        from: this.root_provider.getAddress(),
-                        nonce: Web3.utils.toHex(nonce),
-                        to: this.contract_address,
-                        value: "0x0"
-                    };
-
-                    // Estimate used gas
-                    const estimatedGas = await this.backend.eth.estimateGas(transactionObject);
-
-                    // Set gas price and limit
-                    transactionObject.gasPrice = new web3.utils.BN(gasPrice).toString('hex');
-                    transactionObject.gas = new web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex');
-
-                    // Sign transaction
-                    const signed = await this.root_provider.signTransaction(transactionObject);
-
-                    // Send and wait for confirmation
-                    const receipt = await this.backend.sendSignedTransaction(signed.raw);
-
-                    // Block data object
-                    const block = await this.backend.eth.getBlock(receipt.blockNumber);
-
-                    // Convert hashes to buffers
-                    const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
-                    const blockHash = Buffer.from(receipt.blockHash.slice(2), 'hex');
-
-                    const bnAmount = BigInt(pending.amount);
-
-                    // Apply database changes
-                    this.db.makeTransaction(() => {
-
-                        // Update account transfer amounts
-                        {
-                            let {deposit, withdrawal} = this.db.getAccountStats(userId);
-                            this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + bnAmount).toString());
-                        }
-
-                        // Update global transfer amounts
-                        {
-                            let {deposit, withdrawal} = this.db.getGlobalStats();
-                            this.db.setGlobalStats(deposit, (BigInt(withdrawal) + bnAmount).toString());
-                        }
-
-                        // Delete pending record for current user
-                        this.db.deletePending(userId);
-
-                        // insert transaction record
-                        this.db.insertWithdrawalTransaction(userId, bnAmount.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
-
-                    })();
-
-                    console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, this.fromBigInt(bnAmount), this.coin, userId.toString('hex'));
-                }
-            }
-            catch(e) {
-                // Fatal error, administrator's involvement is required
-                console.log('Fatal error while processing pending withdrawals');
-                console.log(e);
-                // No futher processing is done automatically
-                clearInterval(this.backend_polling);
-                clearInterval(this.pending_processing);
-                console.log('Timers have been halted to prevent unintended consequences');
-            }
-        }, 60000);
-
-        // unref timers
-        this.backend_polling.unref();
-        this.pending_processing.unref();
     }
 
-    async setAwaitingDeposit(userIdHex, amount) {
+    getProxyInfo() {
+        // Global transfer statistics
+        const {deposit, withdrawal} = this.db.getGlobalStats();
+
+        return {
+            coinType: 'erc20',
+            coinDecimals: this.decimals,
+            distinction: 'amount',
+            globalStats: {
+                deposit: this.fromBigInt(deposit),
+                withdrawal: this.fromBigInt(withdrawal)
+            }
+        }
+    }
+
+    /**
+     * Create record for new scheduled deposit
+     *
+     * @userIdHex User identifier in hex encoding
+     * @amount Deposit value
+     */
+    setAwaitingDeposit(userIdHex, amount) {
+        if (this.error !== null)
+            return false;
+
         const amount_in_units = this.toBigInt(amount);
         const userId = Buffer.from(userIdHex, 'hex');
 
@@ -271,21 +308,51 @@ class ERC20 {
         }
     }
 
+    /**
+     * Get awaiting deposits for given user id
+     *
+     * @userIdHex User identifier in hex encoding
+     */
+    getAwaitingDeposits(userIdHex) {
+        const userId = Buffer.from(userIdHex, 'hex');
+        return this.db.getAwaitingDepositsForId(userId);
+    }
+
+    /**
+     * Get fund transfer statistics for given account
+     *
+     * @userIdHex User identifier in hex encoding
+     */
     getAccountInfo(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
         return this.db.getAccountStats(userId)
     }
 
+    /**
+     * Get list of completed deposits for given account
+     *
+     * @userIdHex User identifier in hex encoding
+     */
     getAccountDeposits(userIdHex, skip = 0) {
         const userId = Buffer.from(userIdHex, 'hex');
         return this.db.getTransactions(userId, skip);
     }
 
+    /**
+     * Get list of completed withdrawals for given account
+     *
+     * @userIdHex User identifier in hex encoding
+     */
     getAccountWithdrawals(userIdHex, skip = 0) {
         const userId = Buffer.from(userIdHex, 'hex');
         return this.db.getWithdrawalTransactions(userId, skip);
     }
 
+    /**
+     * Get currently scheduled payment for specified account
+     *
+     * @userIdHex User identifier in hex encoding
+     */
     getAccountPending(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
         return this.db.getAccountPending(userId);
@@ -299,6 +366,8 @@ class ERC20 {
      * @amount Payout sum
      */
     setAccountPending(userIdHex, address, amount) {
+        if (this.error !== null)
+            throw this.error;
         const userId = Buffer.from(userIdHex, 'hex');
         if (undefined !== this.db.getAccountPending(userId))
             throw new Error('Already have sheduled payout for account ' + userIdHex);

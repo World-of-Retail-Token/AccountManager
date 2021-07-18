@@ -5,10 +5,6 @@ class Satoshi {
     db;
     // Backend client
     backend;
-    // Backend polling timer
-    backend_polling;
-    // Pending processing timer
-    pending_processing;
 
     // Receive label
     label;
@@ -24,12 +20,156 @@ class Satoshi {
     // Coin name
     coin;
 
+    // Error object
+    error = null;
+
     // Backend unlocking passphrase
     unlock_password;
 
+    /**
+     * Convert amount in satoshi to decimal string representation
+     *
+     * @sat Amount to be converted
+     */
     satoshiToCoins(sat) {
         const s = sat.toString().padStart(this.coin_decimals + 1, "0");
         return s.slice(0, -this.coin_decimals) + "." + s.slice(-this.coin_decimals).replace(/\.?0+$/, "");
+    }
+
+    async pollBackend() {
+
+        // If there was an error then
+        //  just return it and do nothing
+        if (this.error !== null) {
+            return this.error;
+        }
+
+        try {
+            const count = 10;
+            let skip = 0;
+            let working = true;
+
+            while (working) {
+                // Select (next) batch of records
+                const transactions = await this.backend.listTransactions({count: count, label: this.label, skip: skip, include_watchonly: false});
+                if (transactions.length == 0)
+                    break;
+                skip += count;
+
+                // Process each record
+                for (const record of transactions) {
+                    // Apply confirmation and value limits
+                    if (record.amount < this.minimum_amount || record.confirmations < this.minimum_confirmations)
+                        continue;
+                    // If address is unknown then ignore it
+                    const userId = this.db.getUserId(record.address);
+                    if (!userId)
+                        continue;
+
+                    // Convert hashes to buffers
+                    const txHash = Buffer.from(record.txid, 'hex');
+                    const blockHash = Buffer.from(record.blockhash, 'hex');
+
+                    // Check whether transaction is already associated with this user
+                    if (this.db.checkTransactionExists(userId, txHash)) {
+                        // Break both loops once we reached this point
+                        working = false;
+                        break;
+                    }
+
+                    // Apply database changes
+                    const result = this.db.makeTransaction(() => {
+                        // Convert amount to minimal units
+                        const bnAmount = BigInt((this.coin_denomination * record.amount) | 0);
+
+                        // Update account transfer amounts
+                        {
+                            let {deposit, withdrawal} = this.db.getAccountStats(userId);
+                            this.db.setAccountStats(userId, (BigInt(deposit) + bnAmount).toString(), withdrawal);
+                        }
+
+                        // Update global transfer amounts
+                        {
+                            let {deposit, withdrawal} = this.db.getGlobalStats();
+                            this.db.setGlobalStats((BigInt(deposit) + bnAmount).toString(), withdrawal);
+                        }
+
+                        // insert transaction record
+                        this.db.insertTransaction(userId, bnAmount.toString(), txHash, record.vout, blockHash, record.blockheight, record.blocktime);
+
+                        console.log('Processed deposit transaction %s (%f %s) for account %s', record.txid, record.amount, this.coin, userId.toString('hex'));
+                    })();
+                }
+            }
+
+        } catch(e) {
+            // Fatal error, administrator's involvement is required
+            console.log('Fatal error while processing listtrandactions output');
+            console.log(e);
+
+            this.error = e;
+            return e;
+        }
+    }
+
+    async processPending() {
+
+        // If there was an error then
+        //  just return it and do nothing
+        if (this.error !== null) {
+            return this.error;
+        }
+
+        try {
+            const pending = this.db.getPending();
+            if (!pending) return;
+
+            if (this.unlock_password) {
+                // unlock wallet
+                await this.backend.walletPassphrase({ passphrase: this.unlock_password, timeout: 3600 });
+            }
+
+            for (const {userId, amount, address} of pending) {
+                const bnAmount = BigInt(BigInt(amount));
+                const real_amount = this.satoshiToCoins(bnAmount);
+
+                // Enqueue and wait for transaction id
+                const txid = await this.backend.sendToAddress({
+                    address : address,
+                    amount: Number(real_amount),
+                    comment: userId.toString('hex')
+                });
+
+                this.db.makeTransaction(() => {
+                    // Update account transfer amounts
+                    {
+                        let {deposit, withdrawal} = this.db.getAccountStats(userId);
+                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + bnAmount).toString());
+                    }
+                    // Update global transfer amounts
+                    {
+                        let {deposit, withdrawal} = this.db.getGlobalStats();
+                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + bnAmount).toString());
+                    }
+
+                    // Delete pending record for current user
+                    this.db.deletePending(userId);
+
+                    // Insert withdrawal transaction record
+                    const txHash = Buffer.from(txid, 'hex');
+                    this.db.insertWithdrawalTransaction(userId, amount, txHash, address, Math.floor(Date.now() / 1000));
+                    console.log('Processed withdrawal transaction %s %s (%f %s) for account %s', txid, address, amount, this.coin, userId.toString('hex'));
+                })();
+            }
+        }
+        catch(e) {
+            // Fatal error, administrator's involvement is required
+            console.log('Fatal error while processing pending withdrawal requests');
+            console.log(e);
+
+            this.error = e;
+            return e;
+        }
     }
 
     constructor(config) {
@@ -61,144 +201,35 @@ class Satoshi {
 
         // Polling task
         this.backend_polling = setInterval(async () => {
-            const count = 10;
-            let skip = 0;
-            let working = true;
-            while (working) {
-                try {
-                    // Select (next) batch of records
-                    const transactions = await this.backend.listTransactions({count: count, label: this.label, skip: skip, include_watchonly: false});
-                    if (transactions.length == 0)
-                        break;
-                    skip += count;
-
-                    // Process each record
-                    for (const record of transactions) {
-                        // Apply confirmation and value limits
-                        if (record.amount < this.minimum_amount || record.confirmations < this.minimum_confirmations)
-                            continue;
-                        // If address is unknown then ignore it
-                        const userId = this.db.getUserId(record.address);
-                        if (!userId)
-                            continue;
-
-                        // Convert hashes to buffers
-                        const txHash = Buffer.from(record.txid, 'hex');
-                        const blockHash = Buffer.from(record.blockhash, 'hex');
-
-                        // Check whether transaction is already associated with this user
-                        if (this.db.checkTransactionExists(userId, txHash)) {
-                            // Break both loops once we reached this point
-                            working = false;
-                            break;
-                        }
-
-                        // Apply database changes
-                        const result = this.db.makeTransaction(() => {
-                            // Convert amount to minimal units
-                            const bnAmount = BigInt((this.coin_denomination * record.amount) | 0);
-
-                            // Update account transfer amounts
-                            {
-                                let {deposit, withdrawal} = this.db.getAccountStats(userId);
-                                this.db.setAccountStats(userId, (BigInt(deposit) + bnAmount).toString(), withdrawal);
-                            }
-
-                            // Update global transfer amounts
-                            {
-                                let {deposit, withdrawal} = this.db.getGlobalStats();
-                                this.db.setGlobalStats((BigInt(deposit) + bnAmount).toString(), withdrawal);
-                            }
-
-                            // insert transaction record
-                            this.db.insertTransaction(userId, bnAmount.toString(), txHash, record.vout, blockHash, record.blockheight, record.blocktime);
-
-                            console.log('Processed deposit transaction %s (%f %s) for account %s', record.txid, record.amount, this.coin, userId.toString('hex'));
-                        })();
-                    }
-
-                } catch(e) {
-                    // Fatal error, administrator's involvement is required
-                    console.log('Fatal error while processing listtrandactions output');
-                    console.log(e);
-                    // No futher processing is done automatically
-                    clearInterval(this.backend_polling);
-                    clearInterval(this.pending_processing);
-                    console.log('Timers have been halted to prevent unintended consequences');
-                    break;
-                }
-            }
         }, 60000);
         // Pending processing task
         this.pending_processing = setInterval(async () => {
-            const pending = this.db.getPending();
-            if (!pending) return;
-
-            if (this.unlock_password) {
-                // unlock wallet
-                try {
-                    await this.backend.walletPassphrase({
-                        passphrase: this.unlock_password,
-                        timeout: 300
-                    });
-                } catch(e) {
-                    // Fatal error here, administrator's involvement is necessary
-                    console.log('Unable to unlock wallet');
-                    console.log(e);
-                    clearInterval(this.backend_polling);
-                    clearInterval(this.pending_processing);
-                    console.log('Timers have been halted to prevent futher unintended consequences.');
-                }
-            }
-
-            for (const {userId, amount, address} of pending) {
-                const bnAmount = BigInt(BigInt(amount));
-                const real_amount = this.satoshiToCoins(bnAmount);
-                // Enqueue and wait for transaction id
-                this.backend.sendToAddress({
-                    address : address,
-                    amount: real_amount,
-                    comment: userId.toString('hex')
-                }).then(txid => {
-                    this.db.makeTransaction(() => {
-                        // Update account transfer amounts
-                        {
-                            let {deposit, withdrawal} = this.db.getAccountStats(userId);
-                            this.db.setAccountStats(userId, deposit, (BigInt(deposit) + bnAmount).toString());
-                        }
-                        // Update global transfer amounts
-                        {
-                            let {deposit, withdrawal} = this.db.getGlobalStats();
-                            this.db.setGlobalStats(deposit, (BigInt(deposit) + bnAmount).toString());
-                        }
-
-                        // Delete pending record for current user
-                        this.db.deletePending(userId);
-
-                        // Insert withdrawal transaction record
-                        const txHash = Buffer.from(txid, 'hex');
-                        this.db.insertWithdrawalTransaction(userId, amount, txHash, address, Math.floor(Date.now() / 1000));
-                        console.log('Processed withdrawal transaction %s %s (%f %s) for account %s', txid, address, amount, this.coin, userId.toString('hex'));
-                    })();
-                }).catch(e => {
-                    // Fatal error here, administrator's involvement is necessary
-                    console.log('Error while processing withdrawal transaction %s (%f %s) for account %s', address, amount, this.coin, userId.toString('hex'));
-                    console.log(e);
-
-                    // Stop timers
-                    clearInterval(this.backend_polling);
-                    clearInterval(this.pending_processing);
-                    console.log('Timers have been halted to prevent futher unintended consequences.');
-                });
-            }
         }, 60000);
-
-        // unref timers
-        this.backend_polling.unref();
-        this.pending_processing.unref();
     }
 
+    getProxyInfo() {
+        // Global transfer statistics
+        const {deposit, withdrawal} = this.db.getGlobalStats();
+
+        return {
+            coinType: 'satoshi',
+            coinDecimals: this.coin_decimals,
+            distinction: 'address',
+            globalStats: {
+                deposit: this.satoshiToCoins(deposit),
+                withdrawal: this.satoshiToCoins(withdrawal)
+            }
+        }
+    }
+
+    /**
+     * Get or retreive new deposit address for given user id
+     *
+     * @userIdHex User identifier in hex encoding
+     */
     async getAddress(userIdHex) {
+        if (this.error !== null)
+            return false;
         const userId = Buffer.from(userIdHex, 'hex');
         const existing = this.db.getAddress(userId);
         if (existing)
@@ -208,21 +239,41 @@ class Satoshi {
         return address;
     }
 
+    /**
+     * Get fund transfer statistics for given account
+     *
+     * @userIdHex User identifier in hex encoding
+     */
     getAccountInfo(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
         return this.db.getAccountStats(userId)
     }
 
+    /**
+     * Get list of completed deposits for given account
+     *
+     * @userIdHex User identifier in hex encoding
+     */
     getAccountDeposits(userIdHex, skip = 0) {
         const userId = Buffer.from(userIdHex, 'hex');
         return this.db.getTransactions(userId, skip);
     }
 
+    /**
+     * Get list of completed withdrawals for given account
+     *
+     * @userIdHex User identifier in hex encoding
+     */
     getAccountWithdrawals(userIdHex, skip = 0) {
         const userId = Buffer.from(userIdHex, 'hex');
         return this.db.getWithdrawalTransactions(userId, skip);
     }
 
+    /**
+     * Get currently scheduled payment for specified account
+     *
+     * @userIdHex User identifier in hex encoding
+     */
     getAccountPending(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
         return this.db.getAccountPending(userId);
@@ -236,6 +287,8 @@ class Satoshi {
      * @amount Payout sum
      */
     setAccountPending(userIdHex, address, amount) {
+        if (this.error !== null)
+            throw this.error;
         const userId = Buffer.from(userIdHex, 'hex');
         if (undefined !== this.db.getAccountPending(userId))
             throw new Error('Already have sheduled payout for account ' + userIdHex);
@@ -246,10 +299,6 @@ class Satoshi {
         // Convert amount to minimal units
         const bnAmount = BigInt((this.coin_denomination * amount) | 0);
         this.db.insertPending(userId, address, bnAmount.toString());
-    }
-
-    async getBackendBalance() {
-        return this.backend.getBalance();
     }
 }
 

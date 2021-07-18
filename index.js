@@ -56,7 +56,7 @@ function getBackend(coin) {
 const server = new JSONRPCServer();
 
 // Set handlers
-server.addMethod('setDeposit', ([coin, user, amount]) => {
+server.addMethod('setDeposit', ({coin, user, amount}) => {
     const backend = getBackend(coin);
     switch (backend.getDistinction()) {
         case 'address': return backend.getAddress(user);
@@ -65,12 +65,12 @@ server.addMethod('setDeposit', ([coin, user, amount]) => {
         default: throw new Error('Unknown distinction type');
     }
 });
-server.addMethod('getProxyInfo', ([coin]) => getBackend(coin).getProxyInfo());
-server.addMethod('getStats', ([coin, user]) => getBackend(coin).getAccountInfo(user));
-server.addMethod('listDeposits', ([coin, user, skip]) => getBackend(coin).getAccountDeposits(user, skip));
-server.addMethod('listWithdrawals', ([coin, user, skip]) => getBackend(coin).getAccountWithdrawals(user, skip));
-server.addMethod('getPending', ([coin, user]) => getBackend(coin).getAccountPending(user));
-server.addMethod('setPending', ([coin, user, address, amount]) => getBackend(coin).setAccountPending(user, address, amount));
+server.addMethod('getProxyInfo', ({coin}) => getBackend(coin).getProxyInfo());
+server.addMethod('getStats', ({coin, user}) => getBackend(coin).getAccountInfo(user));
+server.addMethod('listDeposits', ({coin, user, skip}) => getBackend(coin).getAccountDeposits(user, skip));
+server.addMethod('listWithdrawals', ({coin, user, skip}) => getBackend(coin).getAccountWithdrawals(user, skip));
+server.addMethod('getPending', ({coin, user}) => getBackend(coin).getAccountPending(user));
+server.addMethod('setPending', ({coin, user, address, amount}) => getBackend(coin).setAccountPending(user, address, amount));
 
 // TODO: More methods
 

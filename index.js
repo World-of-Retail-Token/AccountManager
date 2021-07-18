@@ -19,14 +19,30 @@ for (const coin of coins) {
 }
 
 // Init processing timers
-setInterval(async() => {
-    for (const backend of backends.values())
-        await backend.pollBackend();
+let deposit_processing = setInterval(async() => {
+    let processed = [];
+    for (const [coin, backend] of backends.entries()) {
+        const err = await backend.pollBackend(processed);
+        if (err) {
+            // Admin attention is necessary
+            console.log('Fatal error while processing deposits for backend %s', coin);
+            console.log(err);
+        }
+    }
+    console.log(processed); // TODO: backend integration
 }, 60000);
 
-setInterval(async() => {
-    for (const backend of backends.values())
-        await backend.processPending();
+let withdrawal_processing = setInterval(async() => {
+    let processed = [];
+    for (const [coin, backend] of backends.entries()) {
+        const err = await backend.processPending();
+        if (err) {
+            // Admin attention is necessary
+            console.log('Fatal error while processing withdrawals for backend %s', coin);
+            console.log(err);
+        }
+    }
+    console.log(processed); // TODO: backend integration
 }, 60000);
 
 function getBackend(coin) {

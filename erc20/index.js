@@ -87,7 +87,7 @@ class ERC20 {
         return s.slice(0, -this.token_decimals) + "." + s.slice(-this.token_decimals).replace(/\.?0+$/, "");
     }
 
-    async pollBackend() {
+    async pollBackend(processed = []) {
 
         // If there was an error then
         //  just return it and do nothing
@@ -143,6 +143,17 @@ class ERC20 {
 
                 })();
 
+                // Will be handled by caller
+                processed.push({
+                    amount: record.amount,
+                    coin: this.coin,
+                    blockHash: record.blockHash.slice(2),
+                    blockHeight: record.blockNumber,
+                    blockTime: record.timestamp,
+                    txHash: record.transactionHash.slice(2),
+                    userId: userId.toString('hex'),
+                });
+
                 console.log('Processed deposit transaction %s (%f %s) for account %s', record.transactionHash, record.amount, this.coin, userId.toString('hex'));
             }
         }
@@ -156,7 +167,7 @@ class ERC20 {
         }
     }
 
-    async processPending() {
+    async processPending(processed = []) {
 
         // If there was an error then
         //  just return it and do nothing
@@ -229,6 +240,17 @@ class ERC20 {
                     this.db.insertWithdrawalTransaction(userId, bnAmount.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
 
                 })();
+
+                // Will be handled by caller
+                processed.push({
+                    amount: this.fromBigInt(bnAmount),
+                    coin: this.coin,
+                    blockHash: receipt.blockHash.slice(2),
+                    blockHeight: receipt.blockNumber,
+                    blockTime: block.timestamp,
+                    txHash: receipt.transactionHash.slice(2),
+                    userId: userId.toString('hex'),
+                });
 
                 console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, this.fromBigInt(bnAmount), this.coin, userId.toString('hex'));
             }

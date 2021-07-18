@@ -34,7 +34,7 @@ class Buterin {
         return new Web3HDWalletProvider(this.mnemonic, this.provider, index);
     }
 
-    async pollBackend() {
+    async pollBackend(processed = []) {
 
         // If there was an error then
         //  just return it and do nothing
@@ -110,6 +110,17 @@ class Buterin {
                     // insert transaction record
                     this.db.insertTransaction(userId, depositAmount.toString(), txHash, blockHash, receipt.blockNumber, block.timestamp);
 
+                    // Will be handled by caller
+                    processed.push({
+                        amount: Web3.utils.fromWei(bnAmount.toString(), 'Ether'),
+                        coin: this.coin,
+                        blockHash: receipt.blockHash.slice(2),
+                        blockHeight: receipt.blockNumber,
+                        blockTime: block.timestamp,
+                        txHash: receipt.transactionHash.slice(2),
+                        userId: userId.toString('hex'),
+                    });
+
                 })();
 
                 console.log('Processed deposit transaction %s (%f %s) for account %s', receipt.transactionHash, Web3.utils.fromWei(bnAmount.toString(), 'Ether'), this.coin, userId.toString('hex'));
@@ -125,7 +136,7 @@ class Buterin {
         }
     }
 
-    async processPending() {
+    async processPending(processed = []) {
 
         // If there was an error then
         //  just return it and do nothing
@@ -191,6 +202,17 @@ class Buterin {
                     this.db.insertWithdrawalTransaction(userId, bnAmount.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
 
                 })();
+
+                // Will be handled by caller
+                processed.push({
+                    amount: Web3.utils.fromWei(bnAmount.toString(), 'Ether'),
+                    coin: this.coin,
+                    blockHash: receipt.blockHash.slice(2),
+                    blockHeight: receipt.blockNumber,
+                    blockTime: block.timestamp,
+                    txHash: receipt.transactionHash.slice(2),
+                    userId: userId.toString('hex'),
+                });
 
                 console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, Web3.utils.fromWei(bnAmount.toString(), 'Ether'), this.coin, userId.toString('hex'));
             }

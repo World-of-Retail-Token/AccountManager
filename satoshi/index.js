@@ -36,7 +36,7 @@ class Satoshi {
         return s.slice(0, -this.coin_decimals) + "." + s.slice(-this.coin_decimals).replace(/\.?0+$/, "");
     }
 
-    async pollBackend() {
+    async pollBackend(processed = []) {
 
         // If there was an error then
         //  just return it and do nothing
@@ -97,6 +97,18 @@ class Satoshi {
                         // insert transaction record
                         this.db.insertTransaction(userId, bnAmount.toString(), txHash, record.vout, blockHash, record.blockheight, record.blocktime);
 
+                        // Will be handled by caller
+                        processed.push({
+                            amount: record.amount,
+                            coin: this.coin,
+                            blockHash: record.blockhash,
+                            blockHeight: record.blockHeight,
+                            blockTime: record.blocktime,
+                            txHash: record.txid,
+                            userId: userId.toString('hex'),
+                            vout: record.vout
+                        });
+
                         console.log('Processed deposit transaction %s (%f %s) for account %s', record.txid, record.amount, this.coin, userId.toString('hex'));
                     })();
                 }
@@ -112,7 +124,7 @@ class Satoshi {
         }
     }
 
-    async processPending() {
+    async processPending(processed = []) {
 
         // If there was an error then
         //  just return it and do nothing
@@ -130,7 +142,7 @@ class Satoshi {
             }
 
             for (const {userId, amount, address} of pending) {
-                const bnAmount = BigInt(BigInt(amount));
+                const bnAmount = BigInt(amount);
                 const real_amount = this.satoshiToCoins(bnAmount);
 
                 // Enqueue and wait for transaction id
@@ -158,8 +170,17 @@ class Satoshi {
                     // Insert withdrawal transaction record
                     const txHash = Buffer.from(txid, 'hex');
                     this.db.insertWithdrawalTransaction(userId, amount, txHash, address, Math.floor(Date.now() / 1000));
-                    console.log('Processed withdrawal transaction %s %s (%f %s) for account %s', txid, address, amount, this.coin, userId.toString('hex'));
-                })();
+                })()
+
+                // Will be handled by caller
+                processed.push({
+                    amount: real_amount,
+                    coin: this.coin,
+                    txHash,
+                    userId: userId.toString('hex')
+                });
+
+                console.log('Processed withdrawal transaction %s %s (%f %s) for account %s', txid, address, real_amount, this.coin, userId.toString('hex'));
             }
         }
         catch(e) {

@@ -102,7 +102,7 @@ class Satoshi {
                             amount: record.amount,
                             coin: this.coin,
                             blockHash: record.blockhash,
-                            blockHeight: record.blockHeight,
+                            blockHeight: record.blockheight,
                             blockTime: record.blocktime,
                             txHash: record.txid,
                             userId: userId.toString('hex'),

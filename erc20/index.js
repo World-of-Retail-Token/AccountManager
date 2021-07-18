@@ -341,7 +341,12 @@ class ERC20 {
      */
     getAwaitingDeposits(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getAwaitingDepositsForId(userId);
+        let result = this.db.getAwaitingDepositsForId(userId);
+        for (let entry of result) {
+            delete entry.userId;
+            entry.amount = this.fromBigInt(entry.amount);
+        }
+        return result;
     }
 
     /**
@@ -365,7 +370,14 @@ class ERC20 {
      */
     getAccountDeposits(userIdHex, skip = 0) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getTransactions(userId, skip);
+        let result = this.db.getTransactions(userId, skip);
+        for (let entry of result) {
+            delete entry.userId;
+            entry.txHash = entry.txHash.toString('hex');
+            entry.blockHash = entry.blockHash.toString('hex');
+            entry.amount = this.fromBigInt(entry.amount);
+        }
+        return result;
     }
 
     /**
@@ -375,7 +387,14 @@ class ERC20 {
      */
     getAccountWithdrawals(userIdHex, skip = 0) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getWithdrawalTransactions(userId, skip);
+        let result = this.db.getWithdrawalTransactions(userId, skip);
+        for (let entry of result) {
+            delete entry.userId;
+            entry.txHash = entry.txHash.toString('hex');
+            entry.blockHash = entry.blockHash.toString('hex');
+            entry.amount = this.fromBigInt(entry.amount);
+        }
+        return result;
     }
 
     /**
@@ -385,7 +404,12 @@ class ERC20 {
      */
     getAccountPending(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getAccountPending(userId);
+        let entry = this.db.getAccountPending(userId);
+        if (entry) {
+            entry.amount = this.fromBigInt(entry.amount);
+            delete entry.userId;
+        }
+        return entry;
     }
 
     /**

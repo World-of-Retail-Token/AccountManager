@@ -285,7 +285,14 @@ class Satoshi {
      */
     getAccountDeposits(userIdHex, skip = 0) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getTransactions(userId, skip);
+        let result = this.db.getTransactions(userId, skip);
+        for (let entry of result) {
+            delete entry.userId;
+            entry.txHash = entry.txHash.toString('hex');
+            entry.blockHash = entry.blockHash.toString('hex');
+            entry.amount = this.satoshiToCoins(entry.amount);
+        }
+        return result;
     }
 
     /**
@@ -295,7 +302,13 @@ class Satoshi {
      */
     getAccountWithdrawals(userIdHex, skip = 0) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getWithdrawalTransactions(userId, skip);
+        let result = this.db.getWithdrawalTransactions(userId, skip);
+        for (let entry of result) {
+            delete entry.userId;
+            entry.txHash = entry.txHash.toString('hex');
+            entry.amount = this.satoshiToCoins(entry.amount);
+        }
+        return result;
     }
 
     /**
@@ -305,7 +318,12 @@ class Satoshi {
      */
     getAccountPending(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getAccountPending(userId);
+        let entry = this.db.getAccountPending(userId);
+        if (entry) {
+            entry.amount = this.satoshiToCoins(entry.amount);
+            delete entry.userId;
+        }
+        return entry;
     }
 
     /**

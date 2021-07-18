@@ -309,7 +309,14 @@ class Buterin {
      */
     getAccountDeposits(userIdHex, skip = 0) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getTransactions(userId, skip);
+        let result = this.db.getTransactions(userId, skip);
+        for (let entry of result) {
+            delete entry.userId;
+            entry.txHash = entry.txHash.toString('hex');
+            entry.blockHash = entry.blockHash.toString('hex');
+            entry.amount = Web3.utils.fromWei(entry.amount, 'Ether');
+        }
+        return result;
     }
 
     /**
@@ -319,7 +326,14 @@ class Buterin {
      */
     getAccountWithdrawals(userIdHex, skip = 0) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getWithdrawalTransactions(userId, skip);
+        let result = this.db.getWithdrawalTransactions(userId, skip);
+        for (let entry of result) {
+            delete entry.userId;
+            entry.txHash = entry.txHash.toString('hex');
+            entry.blockHash = entry.blockHash.toString('hex');
+            entry.amount = Web3.utils.fromWei(entry.amount, 'Ether');
+        }
+        return result;
     }
 
     /**
@@ -329,7 +343,12 @@ class Buterin {
      */
     getAccountPending(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
-        return this.db.getAccountPending(userId);
+        let entry = this.db.getAccountPending(userId);
+        if (entry) {
+            entry.amount = Web3.utils.fromWei(entry.amount, 'Ether');
+            delete entry.userId;
+        }
+        return entry;
     }
 
     /**

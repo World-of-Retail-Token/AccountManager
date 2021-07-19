@@ -46,7 +46,7 @@ class Buterin {
                 return;
 
             // Iterate through addresses
-            for (const {address, idx} of address_records) {
+            for (const {userId, address, idx} of address_records) {
                 // Ensure that address is derived from configured mnemonic
                 const addrHDProvider = this.getHDProvider(idx);
                 if (addrHDProvider.getAddress() != address) {
@@ -57,7 +57,7 @@ class Buterin {
                 const backend = new Web3(addrHDProvider);
 
                 // Don't process unless we have more than minimal balance
-                const addressBalance = await backend.eth.getBalance(address);
+                const addressBalance = await backend.eth.getBalance(address, "pending");
                 if (BigInt(addressBalance) < this.minimum_amount)
                     continue;
 
@@ -159,7 +159,7 @@ class Buterin {
                 const nonce = await backend.eth.getTransactionCount(this.root_provider.getAddress());
                 const estimatedGas = await backend.eth.estimateGas({ from: this.root_provider.getAddress(), nonce: Web3.utils.toHex(nonce), to: pending.address, value: Web3.utils.toHex(pending.amount) });
                 const gasPrice = await backend.eth.getGasPrice();
-                const gasValue = BigInt((estimatedGas * 1.2) | 0) * BigInt(gasPrice);
+                const gasValue = BigInt(estimatedGas) * BigInt(gasPrice);
                 const bnAmount = BigInt(pending.amount) - gasValue;
 
                 // Transaction fields
@@ -169,7 +169,7 @@ class Buterin {
                     to: pending.address,
                     value: Web3.utils.toHex(bnAmount.toString()),
                     gasPrice: '0x' + new Web3.utils.BN(gasPrice).toString('hex'),
-                    gas: '0x' + new Web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex')
+                    gas: '0x' + new Web3.utils.BN(estimatedGas).toString('hex')
                 };
 
                 // Sign transaction

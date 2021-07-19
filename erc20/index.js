@@ -48,8 +48,6 @@ async function listERC20Transactions(backend, contractAddress, tokenDecimals, ad
 class ERC20 {
     // Database wrapper class
     db;
-    // Backend client
-    backend;
 
     // Limits
     minimum_amount;
@@ -105,7 +103,10 @@ class ERC20 {
             // Block after last scanned block height
             const fromBlock = this.db.getTopBlock() + 1;
 
-            const incoming = await listERC20Transactions(this.backend, this.contract_address, this.token_decimals, this.root_provider.getAddress(), fromBlock);
+            // Web3 backend
+            const backend = new Web3(this.root_provider);
+
+            const incoming = await listERC20Transactions(backend, this.contract_address, this.token_decimals, this.root_provider.getAddress(), fromBlock);
             if (0 == incoming.length)
                 return;
 
@@ -180,13 +181,16 @@ class ERC20 {
             const pending_records = this.db.getPending();
             if (0 == pending_records.length) return;
 
+            // Web3 backend
+            const backend = new Web3(this.root_provider);
+
             for (const pending of pending_records) {
                 // Get gas price and nonce
-                const nonce = await web3.eth.getTransactionCount(this.root_provider.getAddress());
-                const gasPrice = await this.backend.eth.getGasPrice();
+                const nonce = await backend.eth.getTransactionCount(this.root_provider.getAddress());
+                const gasPrice = await backend.eth.getGasPrice();
 
                 // ERC20 contract interface
-                const contract = new web3.eth.Contract(standardAbi, this.contract_address, {from: this.root_provider.getAddress()});
+                const contract = new backend.eth.Contract(standardAbi, this.contract_address, {from: this.root_provider.getAddress()});
 
                 // Transaction fields
                 let transactionObject = {
@@ -198,20 +202,20 @@ class ERC20 {
                 };
 
                 // Estimate used gas
-                const estimatedGas = await this.backend.eth.estimateGas(transactionObject);
+                const estimatedGas = await backend.eth.estimateGas(transactionObject);
 
                 // Set gas price and limit
-                transactionObject.gasPrice = new web3.utils.BN(gasPrice).toString('hex');
-                transactionObject.gas = new web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex');
+                transactionObject.gasPrice = new Web3.utils.BN(gasPrice).toString('hex');
+                transactionObject.gas = new Web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex');
 
                 // Sign transaction
-                const signed = await this.root_provider.signTransaction(transactionObject);
+                const signed = await backend.eth.signTransaction(transactionObject);
 
                 // Send and wait for confirmation
-                const receipt = await this.backend.sendSignedTransaction(signed.raw);
+                const receipt = await backend.eth.sendSignedTransaction(signed.raw);
 
                 // Block data object
-                const block = await this.backend.eth.getBlock(receipt.blockNumber);
+                const block = await backend.eth.getBlock(receipt.blockNumber);
 
                 // Convert hashes to buffers
                 const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
@@ -283,9 +287,6 @@ class ERC20 {
 
         // Web3 provider
         const provider = new Web3.providers.WebsocketProvider(config.web3_url);
-
-        // Init backend RPC accessor class
-        this.backend = new Web3(provider);
 
         // Init root provider
         this.root_provider = new HDWalletProvider({mnemonic: config.mnemonic, providerOrUrl: provider, addressIndex: 0});

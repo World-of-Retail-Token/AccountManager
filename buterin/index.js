@@ -7,9 +7,6 @@ class Buterin {
     // Database wrapper class
     db;
 
-    // Backend client
-    backend;
-
     // Limits
     minimum_amount;
 
@@ -56,15 +53,18 @@ class Buterin {
                     throw new Error('Sanity check failure: derived address mismatch');
                 }
 
+                // Init new Web3 instance for user-specific HD provider
+                const backend = new Web3(addrHDProvider);
+
                 // Don't process unless we have more than minimal balance
-                const addressBalance = await this.backend.eth.getBalance(address);
+                const addressBalance = await backend.eth.getBalance(address);
                 if (BigInt(addressBalance) < this.minimum_amount)
                     continue;
 
                 // Get gas price and calculate total gas value
-                const nonce = await web3.eth.getTransactionCount(address);
-                const estimatedGas = await this.backend.eth.estimateGas({ from: address, nonce: Web3.utils.toHex(nonce), to: this.root_provider.getAddress(), value: Web3.utils.toHex(addressBalance) });
-                const gasPrice = await this.backend.eth.getGasPrice();
+                const nonce = await backend.eth.getTransactionCount(address);
+                const estimatedGas = await backend.eth.estimateGas({ from: address, nonce: Web3.utils.toHex(nonce), to: this.root_provider.getAddress(), value: Web3.utils.toHex(addressBalance) });
+                const gasPrice = await backend.eth.getGasPrice();
                 const gasValue = BigInt(estimatedGas) * BigInt(gasPrice);
 
                 // Deduct estimated total gas price from amount
@@ -76,18 +76,18 @@ class Buterin {
                     nonce: Web3.utils.toHex(nonce),
                     to: this.root_provider.getAddress(),
                     value: Web3.utils.toHex(depositAmount.toString()),
-                    gasPrice: '0x' + new web3.utils.BN(gasPrice).toString('hex'),
-                    gas: '0x' + new web3.utils.BN(estimatedGas).toString('hex')
+                    gasPrice: '0x' + new Web3.utils.BN(gasPrice).toString('hex'),
+                    gas: '0x' + new Web3.utils.BN(estimatedGas).toString('hex')
                 };
 
                 // Sign transaction
-                const signed = await addrHDProvider.signTransaction(transactionObject);
+                const signed = await backend.eth.signTransaction(transactionObject);
 
                 // Send and wait for confirmation
-                const receipt = await this.backend.sendSignedTransaction(signed.raw);
+                const receipt = await backend.eth.sendSignedTransaction(signed.raw);
 
                 // Block data object
-                const block = await this.backend.eth.getBlock(receipt.blockNumber);
+                const block = await backend.eth.getBlock(receipt.blockNumber);
 
                 // Convert hashes to buffers
                 const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
@@ -146,15 +146,19 @@ class Buterin {
         }
 
         try {
+            // Get pending withdrawals array
             const pending_records = this.db.getPending();
             if (0 == pending_records.length) return;
+
+            // Init new Web3 instance for root HD provider
+            const backend = new Web3(this.root_provider);
 
             for (const pending of pending_records) {
 
                 // Get gas price and calculate total gas value
-                const nonce = await web3.eth.getTransactionCount(this.root_provider.getAddress());
-                const estimatedGas = await this.backend.eth.estimateGas({ from: this.root_provider.getAddress(), nonce: Web3.utils.toHex(nonce), to: pending.address, value: Web3.utils.toHex(pending.amount) });
-                const gasPrice = await this.backend.eth.getGasPrice();
+                const nonce = await backend.eth.getTransactionCount(this.root_provider.getAddress());
+                const estimatedGas = await backend.eth.estimateGas({ from: this.root_provider.getAddress(), nonce: Web3.utils.toHex(nonce), to: pending.address, value: Web3.utils.toHex(pending.amount) });
+                const gasPrice = await backend.eth.getGasPrice();
                 const gasValue = BigInt((estimatedGas * 1.2) | 0) * BigInt(gasPrice);
                 const bnAmount = BigInt(pending.amount) - gasValue;
 
@@ -164,18 +168,18 @@ class Buterin {
                     nonce: Web3.utils.toHex(nonce),
                     to: pending.address,
                     value: Web3.utils.toHex(bnAmount.toString()),
-                    gasPrice: '0x' + new web3.utils.BN(gasPrice).toString('hex'),
-                    gas: '0x' + new web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex')
+                    gasPrice: '0x' + new Web3.utils.BN(gasPrice).toString('hex'),
+                    gas: '0x' + new Web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex')
                 };
 
                 // Sign transaction
-                const signed = await this.root_provider.signTransaction(transactionObject);
+                const signed = await backend.eth.signTransaction(transactionObject);
 
                 // Send and wait for confirmation
-                const receipt = await this.backend.sendSignedTransaction(signed.raw);
+                const receipt = await backend.sendSignedTransaction(signed.raw);
 
                 // Block data object
-                const block = await this.backend.eth.getBlock(receipt.blockNumber);
+                const block = await backend.eth.getBlock(receipt.blockNumber);
 
                 // Convert hashes to buffers
                 const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
@@ -244,9 +248,8 @@ class Buterin {
         // Init frontend database
         this.db = new Database(config);
 
-        // Init backend RPC accessor class
+        // Init backend connection provider
         this.provider = new Web3.providers.WebsocketProvider(config.web3_url);
-        this.backend = new Web3(this.provider);
 
         // Remember limits
         this.minimum_amount = BigInt(Web3.utils.toWei((config.minimum_amount || 0.0001).toString()));

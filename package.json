@@ -4,9 +4,10 @@
   "description": "Accounting server for various cryptocoins",
   "main": "index.js",
   "dependencies": {
+    "better-sqlite3": "^7.4.1",
     "json-rpc-2.0": "^0.2.16"
   },
- "scripts": {
+  "scripts": {
     "postinstall": "(cd buterin && npm install); (cd erc20 && npm install); (cd satoshi && npm install)"
   }
 }

@@ -10,7 +10,25 @@ const proxy_classes = {
 // Frontend is serving JSON-RPC requests over HTTP protocol
 const http = require('http');
 const { JSONRPCServer } = require("json-rpc-2.0");
-const { rpcport, rpchost, coins } = require('./config');
+const { rpcport, rpchost, coins, database_path, database_options } = require('./config');
+
+// We only need fs and path modules once so
+//  there is no need to keep them globally
+const schema = require('fs').readFileSync(require('path').join(__dirname, 'src', 'schema.sql'), 'utf-8');
+
+// better-sqlite3 instance
+const db = require('better-sqlite3')(database_path, database_options || {});
+
+// Init schema
+db.exec(schema);
+
+// Prepare statements
+const select_processed_deposits = db.prepare('SELECT * FROM processed_deposits');
+const select_processed_withdrawals = db.prepare('SELECT * FROM processed_withdrawals');
+const insert_processed_deposit = db.prepare('INSERT INTO processed_deposits (json) VALUES (?)');
+const insert_processed_withdrawal = db.prepare('INSERT INTO processed_withdrawals (json) VALUES (?)');
+const clean_processed_deposits = db.prepare('DELETE FROM processed_deposits');
+const clean_processed_withdrawals = db.prepare('DELETE FROM processed_withdrawals');
 
 // Init coin proxies
 const backends = new Map();
@@ -29,20 +47,32 @@ let deposit_processing = setInterval(async() => {
             console.log(err);
         }
     }
-    console.log(processed); // TODO: backend integration
+
+    // Keep entries in table
+    db.transaction(() => {
+        for (const entry of processed)
+            insert_processed_deposit.run(JSON.stringify(entry));
+    })();
+
 }, 60000);
 
 let withdrawal_processing = setInterval(async() => {
     let processed = [];
     for (const [coin, backend] of backends.entries()) {
-        const err = await backend.processPending();
+        const err = await backend.processPending(processed);
         if (err) {
             // Admin attention is necessary
             console.log('Fatal error while processing withdrawals for backend %s', coin);
             console.log(err);
         }
     }
-    console.log(processed); // TODO: backend integration
+
+    // Keep entries in table
+    db.transaction(() => {
+        for (const entry of processed)
+            insert_processed_withdrawal.run(JSON.stringify(entry));
+    })();
+
 }, 60000);
 
 function getBackend(coin) {
@@ -56,6 +86,19 @@ function getBackend(coin) {
 const server = new JSONRPCServer();
 
 // Set handlers
+
+server.addMethod('listProcessedDeposits', db.transaction(() => {
+    const records = select_processed_deposits.all();
+    clean_processed_deposits.run();
+    return records.map(({json}) => JSON.parse(json));
+}));
+
+server.addMethod('listProcessedWithdrawals', db.transaction(() => {
+    const records = select_processed_withdrawals.all();
+    clean_processed_withdrawals.run();
+    return records.map(({json}) => JSON.parse(json));
+}));
+
 server.addMethod('setDeposit', ({coin, user, amount}) => {
     const backend = getBackend(coin);
     switch (backend.getDistinction()) {
@@ -65,6 +108,7 @@ server.addMethod('setDeposit', ({coin, user, amount}) => {
         default: throw new Error('Unknown distinction type');
     }
 });
+
 server.addMethod('getProxyInfo', ({coin}) => getBackend(coin).getProxyInfo());
 server.addMethod('getStats', ({coin, user}) => getBackend(coin).getAccountInfo(user));
 server.addMethod('listDeposits', ({coin, user, skip}) => getBackend(coin).getAccountDeposits(user, skip));

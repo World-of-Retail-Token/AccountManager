@@ -24,5 +24,6 @@ const coins = [
 module.exports = {
     rpchost: '127.0.0.1',
     rpcport: 8081,
+    database_path: './database.db',
     coins: coins
 };

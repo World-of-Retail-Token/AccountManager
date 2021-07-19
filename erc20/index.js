@@ -267,6 +267,14 @@ class ERC20 {
     }
 
     constructor(config) {
+        // We require secure websocket (wss://) URL for backend connection
+        if (!config.web3_url || String(config.web3_url).slice(0, 6) !== 'wss://')
+            throw new Error('web3_url is not a valid wss:// URL');
+
+        // To function properly we also need a valid bip39 mnemonic
+        if (!require('bip39').validateMnemonic(config.mnemonic))
+            throw new Error('mnemonic field is not a valid bip39 mnemonic');
+
         // We only need these references once
         const Database = require('./src/database');;
 
@@ -274,7 +282,7 @@ class ERC20 {
         this.db = new Database(config);
 
         // Web3 provider
-        const provider = new Web3.providers.HttpProvider(config.web3_url);
+        const provider = new Web3.providers.WebsocketProvider(config.web3_url);
 
         // Init backend RPC accessor class
         this.backend = new Web3(provider);

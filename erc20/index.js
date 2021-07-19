@@ -113,7 +113,7 @@ class ERC20 {
             // Iterate through new token transactions
             for (const record of incoming) {
                 // Ignore spam deposits
-                const amount_in_units = toBigInt(record.amount);
+                const amount_in_units = BigInt(record.amount);
                 if (amount_in_units < this.minimum_amount || !awaitingDeposits.has(amount_in_units))
                     continue;
 
@@ -121,6 +121,7 @@ class ERC20 {
                 const userId = awaitingDeposits.get(amount_in_units);
                 const txHash = Buffer.from(record.transactionHash.slice(2), 'hex');
                 const blockHash = Buffer.from(record.blockHash.slice(2), 'hex');
+                const decumalAmount = this.fromBigInt(amount_in_units);
 
                 // Apply database changes
                 this.db.makeTransaction(() => {
@@ -147,7 +148,7 @@ class ERC20 {
 
                 // Will be handled by caller
                 processed.push({
-                    amount: record.amount,
+                    amount: decimalAmount,
                     coin: this.coin,
                     blockHash: record.blockHash.slice(2),
                     blockHeight: record.blockNumber,
@@ -156,7 +157,7 @@ class ERC20 {
                     userId: userId.toString('hex'),
                 });
 
-                console.log('Processed deposit transaction %s (%f %s) for account %s', record.transactionHash, record.amount, this.coin, userId.toString('hex'));
+                console.log('Processed deposit transaction %s (%f %s) for account %s', record.transactionHash, decimalAmount, this.coin, userId.toString('hex'));
             }
         }
         catch(e) {
@@ -221,7 +222,8 @@ class ERC20 {
                 const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
                 const blockHash = Buffer.from(receipt.blockHash.slice(2), 'hex');
 
-                const bnAmount = BigInt(pending.amount);
+                const amount_in_units = BigInt(pending.amount);
+                const decimalAmount = this.fromBigInt(amount_in_units);
 
                 // Apply database changes
                 this.db.makeTransaction(() => {
@@ -229,26 +231,26 @@ class ERC20 {
                     // Update account transfer amounts
                     {
                         let {deposit, withdrawal} = this.db.getAccountStats(userId);
-                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + bnAmount).toString());
+                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + amount_in_units).toString());
                     }
 
                     // Update global transfer amounts
                     {
                         let {deposit, withdrawal} = this.db.getGlobalStats();
-                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + bnAmount).toString());
+                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + amount_in_units).toString());
                     }
 
                     // Delete pending record for current user
                     this.db.deletePending(userId);
 
                     // insert transaction record
-                    this.db.insertWithdrawalTransaction(userId, bnAmount.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
+                    this.db.insertWithdrawalTransaction(userId, amount_in_units.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
 
                 })();
 
                 // Will be handled by caller
                 processed.push({
-                    amount: this.fromBigInt(bnAmount),
+                    amount: decimalAmount,
                     coin: this.coin,
                     blockHash: receipt.blockHash.slice(2),
                     blockHeight: receipt.blockNumber,
@@ -257,7 +259,7 @@ class ERC20 {
                     userId: userId.toString('hex'),
                 });
 
-                console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, this.fromBigInt(bnAmount), this.coin, userId.toString('hex'));
+                console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, decimalAmount, this.coin, userId.toString('hex'));
             }
         }
         catch(e) {
@@ -441,7 +443,7 @@ class ERC20 {
         const amount_in_units = this.toBigInt(amount);
         if (amount_in_units < this.minimum_amount)
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
-        this.db.insertPending(userId, address, bnAmount.toString());
+        this.db.insertPending(userId, address, amount_in_units.toString());
     }
 }
 

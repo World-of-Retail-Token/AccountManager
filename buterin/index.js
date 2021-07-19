@@ -93,6 +93,9 @@ class Buterin {
                 const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
                 const blockHash = Buffer.from(receipt.blockHash.slice(2), 'hex');
 
+                // Convert value
+                const amountDecimal = Web3.utils.fromWei(depositAmount.toString(), 'Ether');
+
                 // Apply database changes
                 this.db.makeTransaction(() => {
 
@@ -113,7 +116,7 @@ class Buterin {
 
                     // Will be handled by caller
                     processed.push({
-                        amount: Web3.utils.fromWei(bnAmount.toString(), 'Ether'),
+                        amount: amountDecimal,
                         coin: this.coin,
                         blockHash: receipt.blockHash.slice(2),
                         blockHeight: receipt.blockNumber,
@@ -124,7 +127,7 @@ class Buterin {
 
                 })();
 
-                console.log('Processed deposit transaction %s (%f %s) for account %s', receipt.transactionHash, Web3.utils.fromWei(bnAmount.toString(), 'Ether'), this.coin, userId.toString('hex'));
+                console.log('Processed deposit transaction %s (%f %s) for account %s', receipt.transactionHash, amountDecimal, this.coin, userId.toString('hex'));
             }
         }
         catch(e) {
@@ -160,14 +163,14 @@ class Buterin {
                 const estimatedGas = await backend.eth.estimateGas({ from: this.root_provider.getAddress(), nonce: Web3.utils.toHex(nonce), to: pending.address, value: Web3.utils.toHex(pending.amount) });
                 const gasPrice = await backend.eth.getGasPrice();
                 const gasValue = BigInt(estimatedGas) * BigInt(gasPrice);
-                const bnAmount = BigInt(pending.amount) - gasValue;
+                const withdrawalAmount = BigInt(pending.amount) - gasValue;
 
                 // Transaction fields
                 const transactionObject = {
                     from: this.root_provider.getAddress(),
                     nonce: Web3.utils.toHex(nonce),
                     to: pending.address,
-                    value: Web3.utils.toHex(bnAmount.toString()),
+                    value: Web3.utils.toHex(withdrawalAmount.toString()),
                     gasPrice: '0x' + new Web3.utils.BN(gasPrice).toString('hex'),
                     gas: '0x' + new Web3.utils.BN(estimatedGas).toString('hex')
                 };
@@ -185,32 +188,35 @@ class Buterin {
                 const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
                 const blockHash = Buffer.from(receipt.blockHash.slice(2), 'hex');
 
+                // Convert value
+                const amountDecimal = Web3.utils.fromWei(withdrawalAmount.toString(), 'Ether');
+
                 // Apply database changes
                 this.db.makeTransaction(() => {
 
                     // Update account transfer amounts
                     {
                         let {deposit, withdrawal} = this.db.getAccountStats(userId);
-                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + bnAmount).toString());
+                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + withdrawalAmount).toString());
                     }
 
                     // Update global transfer amounts
                     {
                         let {deposit, withdrawal} = this.db.getGlobalStats();
-                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + bnAmount).toString());
+                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + withdrawalAmount).toString());
                     }
 
                     // Delete pending record for current user
                     this.db.deletePending(userId);
 
                     // insert transaction record
-                    this.db.insertWithdrawalTransaction(userId, bnAmount.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
+                    this.db.insertWithdrawalTransaction(userId, withdrawalAmount.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
 
                 })();
 
                 // Will be handled by caller
                 processed.push({
-                    amount: Web3.utils.fromWei(bnAmount.toString(), 'Ether'),
+                    amount: amountDecimal,
                     coin: this.coin,
                     blockHash: receipt.blockHash.slice(2),
                     blockHeight: receipt.blockNumber,
@@ -219,7 +225,7 @@ class Buterin {
                     userId: userId.toString('hex'),
                 });
 
-                console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, Web3.utils.fromWei(bnAmount.toString(), 'Ether'), this.coin, userId.toString('hex'));
+                console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, amountDecimal, this.coin, userId.toString('hex'));
             }
         }
         catch(e) {

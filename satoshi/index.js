@@ -134,7 +134,7 @@ class Satoshi {
 
         try {
             const pending = this.db.getPending();
-            if (!pending) return;
+            if (0 == pending.length) return;
 
             if (this.unlock_password) {
                 // unlock wallet

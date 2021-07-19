@@ -4,6 +4,7 @@
   "description": "Accounting proxy for erc20 tokens",
   "main": "index.js",
   "dependencies": {
+    "@truffle/hdwallet-provider": "^1.4.1",
     "better-sqlite3": "^7.4.1",
     "bip39": "^3.0.4",
     "ethereumjs-util": "^7.1.0",

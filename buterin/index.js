@@ -1,6 +1,7 @@
 'use strict';
 
 const Web3 = require('web3');
+const HDWalletProvider = require("@truffle/hdwallet-provider");
 
 class Buterin {
     // Database wrapper class
@@ -15,7 +16,7 @@ class Buterin {
     // Mnemonic string
     mnemonic;
     
-    // Web3 provider
+    // Web3 connectivity
     provider;
     
     // Root account HD provider
@@ -31,7 +32,7 @@ class Buterin {
      * Init HD provider for given account index
      */
     getHDProvider(index) {
-        return new Web3HDWalletProvider(this.mnemonic, this.provider, index);
+        return new HDWalletProvider({mnemonic: this.mnemonic, providerOrUrl: this.provider, addressIndex: index});
     }
 
     async pollBackend(processed = []) {
@@ -145,8 +146,8 @@ class Buterin {
         }
 
         try {
-            const pending = this.db.getPending();
-            if (!pending) return;
+            const pending_records = this.db.getPending();
+            if (0 == pending_records.length) return;
 
             for (const pending of pending_records) {
 
@@ -246,7 +247,7 @@ class Buterin {
         this.mnemonic = config.mnemonic;
 
         // Init root provider
-        this.root_provider = getHDProvider(0);
+        this.root_provider = this.getHDProvider(0);
 
         // Remember coin name
         this.coin = config.coin;

@@ -2,6 +2,7 @@
 
 const standardAbi = require('./src/erc20_abi');
 var Web3 = require('web3');
+const HDWalletProvider = require("@truffle/hdwallet-provider");
 
 async function listERC20Transactions(backend, contractAddress, tokenDecimals, address, fromBlock) {
 
@@ -176,8 +177,8 @@ class ERC20 {
         }
 
         try {
-            const pending = this.db.getPending();
-            if (!pending) return;
+            const pending_records = this.db.getPending();
+            if (0 == pending_records.length) return;
 
             for (const pending of pending_records) {
                 // Get gas price and nonce
@@ -279,7 +280,7 @@ class ERC20 {
         this.backend = new Web3(provider);
 
         // Init root provider
-        this.root_provider = new Web3HDWalletProvider(config.mnemonic, provider, 0);
+        this.root_provider = new HDWalletProvider({mnemonic: config.mnemonic, providerOrUrl: provider, addressIndex: 0});
 
         // Remember limits
         this.decimals = config.decimals;

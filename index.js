@@ -37,15 +37,28 @@ for (const coin of coins) {
 }
 
 // Init processing timers
-let deposit_processing = setInterval(async() => {
+
+let deposit_processing, withdrawal_processing;
+const schedule_deposit_processing = () => { deposit_processing = setTimeout(process_deposits, 10000); };
+const schedule_withdrawal_processing = () => { withdrawal_processing = setTimeout(process_withdrawals, 10000); };
+
+const process_deposits = async() => {
     let processed = [];
-    for (const [coin, backend] of backends.entries()) {
-        const err = await backend.pollBackend(processed);
-        if (err) {
-            // Admin attention is necessary
-            console.log('Fatal error while processing deposits for backend %s', coin);
-            console.log(err);
+    let dirty;
+
+    try {
+        for (const [coin, backend] of backends.entries()) {
+            const err = await backend.pollBackend(processed);
+            if (err) {
+                // Admin attention is necessary
+                console.log('Fatal error while processing deposits for backend %s', coin);
+                console.log(err);
+            }
         }
+    } catch(e) {
+        console.log('Unhandled error while processing deposits');
+        console.log(e);
+        dirty = true;
     }
 
     // Keep entries in table
@@ -54,17 +67,29 @@ let deposit_processing = setInterval(async() => {
             insert_processed_deposit.run(JSON.stringify(entry));
     })();
 
-}, 60000);
+    if (!dirty) {
+        // Schedule next call
+        schedule_deposit_processing();
+    }
+};
 
-let withdrawal_processing = setInterval(async() => {
+const process_withdrawals = async() => {
     let processed = [];
-    for (const [coin, backend] of backends.entries()) {
-        const err = await backend.processPending(processed);
-        if (err) {
-            // Admin attention is necessary
-            console.log('Fatal error while processing withdrawals for backend %s', coin);
-            console.log(err);
+    let dirty;
+    try {
+        for (const [coin, backend] of backends.entries()) {
+            const err = await backend.processPending(processed);
+            if (err) {
+                // Admin attention is necessary
+                console.log('Fatal error while processing withdrawals for backend %s', coin);
+                console.log(err);
+            }
         }
+    }
+    catch(e) {
+        console.log('Unhandled error while processing withdrawals');
+        console.log(e);
+        dirty = true;
     }
 
     // Keep entries in table
@@ -73,8 +98,17 @@ let withdrawal_processing = setInterval(async() => {
             insert_processed_withdrawal.run(JSON.stringify(entry));
     })();
 
-}, 60000);
+    if (!dirty) {
+        // Schedule next call
+        schedule_withdrawal_processing();
+    }
+};
 
+// Schedule first calls
+schedule_deposit_processing();
+schedule_withdrawal_processing();
+
+// Find backend or throw error
 function getBackend(coin) {
     const backend = backends.get(coin);
     if (!backend)

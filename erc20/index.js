@@ -123,6 +123,8 @@ class ERC20 {
                 const blockHash = Buffer.from(record.blockHash.slice(2), 'hex');
                 const decumalAmount = this.fromBigInt(amount_in_units);
 
+                console.log('[Deposit] New ERC20 transfer event for account %s, handling deposit of %s %s', userId.toString('hex'), decimalAmount, this.coin);
+
                 // Apply database changes
                 this.db.makeTransaction(() => {
 
@@ -157,7 +159,7 @@ class ERC20 {
                     userId: userId.toString('hex'),
                 });
 
-                console.log('Processed deposit transaction %s (%f %s) for account %s', record.transactionHash, decimalAmount, this.coin, userId.toString('hex'));
+                console.log('[Deposit] Processed deposit transaction %s (%f %s) for account %s', record.transactionHash, decimalAmount, this.coin, userId.toString('hex'));
             }
         }
         catch(e) {
@@ -178,6 +180,9 @@ class ERC20 {
             return this.error;
         }
 
+        // ERC20 contract interface
+        const contract = new backend.eth.Contract(standardAbi, this.contract_address, {from: this.root_provider.getAddress()});
+
         try {
             const pending_records = this.db.getPending();
             if (0 == pending_records.length) return;
@@ -187,29 +192,13 @@ class ERC20 {
 
             for (const pending of pending_records) {
 
-                // Reject if destination address is a contract
-                if ((await backend.eth.getCode(pending.address)) !== '0x') {
-
-                    // Delete from processing queue
-                    this.db.deletePending(pending.userId);
-
-                    // Must be handled manually
-                    rejected.push({
-                        amount: amountDecimal,
-                        address: pending.address,
-                        coin: this.coin,
-                        userId: pending.userId.toString('hex')
-                    });
-
-                    continue;
-                }
-
-                // Get gas price and nonce
+                // Current transaction sequence
+                console.log('[Withdrawal] Getting transaction nonce');
                 const nonce = await backend.eth.getTransactionCount(this.root_provider.getAddress());
-                const gasPrice = await backend.eth.getGasPrice();
+                console.log('[Withdrawal] Nonce is %d', nonce);
 
-                // ERC20 contract interface
-                const contract = new backend.eth.Contract(standardAbi, this.contract_address, {from: this.root_provider.getAddress()});
+
+                console.log('[Withdrawal] Estimating gas amount for transfer to %s ...', pending.address);
 
                 // Transaction fields
                 let transactionObject = {
@@ -223,25 +212,54 @@ class ERC20 {
                 // Estimate used gas
                 const estimatedGas = await backend.eth.estimateGas(transactionObject);
 
+                // Get gas price
+                const gasPrice = await backend.eth.getGasPrice();
+
+                console.log('[Withdrawal] Gas amount %s, Gas price %s %s, total gas value %s %s', estimatedGas, Web3.utils.fromWei(gasPrice, 'Ether'), this.coin, Web3.utils.fromWei(gasValue.toString(), 'Ether'), this.coin);
+
                 // Set gas price and limit
                 transactionObject.gasPrice = new Web3.utils.BN(gasPrice).toString('hex');
                 transactionObject.gas = new Web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex');
 
+                const decimalAmount = this.fromBigInt(pending.amount);
+
+                console.log('[Withdrawal] Signing withdrawal transaction of %s %s to address %s for user %s', amountDecimal, this.coin, pending.address, pending.userId.toString('hex'));
+
                 // Sign transaction
                 const signed = await backend.eth.signTransaction(transactionObject);
 
-                // Send and wait for confirmation
-                const receipt = await backend.eth.sendSignedTransaction(signed.raw);
+                console.log('[Withdrawal] Trying to submit ...');
+
+                let receipt;
+                try {
+                    // Send and wait for confirmation
+                    receipt = await backend.eth.sendSignedTransaction(signed.raw);
+                } catch(e) {
+                    console.log('[Withdrawal] Transaction has been rejected');
+                    console.log(e);
+
+                    // Delete from processing queue
+                    this.db.deletePending(pending.userId);
+
+                    // Rejects must be handled manually
+                    rejected.push({
+                        amount: decimalAmount,
+                        address: pending.address,
+                        coin: this.coin,
+                        userId: pending.userId.toString('hex')
+                    });
+
+                    continue;
+                }
 
                 // Block data object
                 const block = await backend.eth.getBlock(receipt.blockNumber);
 
+                console.log('[Withdrawal] Confirmed in block %d', receipt.blockNumber);
+
                 // Convert hashes to buffers
                 const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
                 const blockHash = Buffer.from(receipt.blockHash.slice(2), 'hex');
-
-                const amount_in_units = BigInt(pending.amount);
-                const decimalAmount = this.fromBigInt(amount_in_units);
 
                 // Apply database changes
                 this.db.makeTransaction(() => {
@@ -277,7 +295,7 @@ class ERC20 {
                     userId: pending.userId.toString('hex'),
                 });
 
-                console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, decimalAmount, this.coin, pending.userId.toString('hex'));
+                console.log('[Withdrawal] Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, decimalAmount, this.coin, pending.userId.toString('hex'));
             }
         }
         catch(e) {

@@ -203,7 +203,6 @@ class ERC20 {
                 const nonce = await backend.eth.getTransactionCount(this.root_provider.getAddress());
                 console.log('[Withdrawal] Nonce is %d', nonce);
 
-
                 console.log('[Withdrawal] Estimating gas amount for transfer to %s ...', pending.address);
 
                 // Transaction fields
@@ -225,8 +224,8 @@ class ERC20 {
                 console.log('[Withdrawal] Gas amount %s, Gas price %s ETH, total gas value %s ETH', estimatedGas, Web3.utils.fromWei(gasPrice, 'Ether'), Web3.utils.fromWei(gasValue.toString(), 'Ether'));
 
                 // Set gas price and limit
-                transactionObject.gasPrice = new Web3.utils.BN(gasPrice).toString('hex');
-                transactionObject.gas = new Web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex');
+                transactionObject.gasPrice = '0x' + new Web3.utils.BN(gasPrice).toString('hex');
+                transactionObject.gas = '0x' + new Web3.utils.BN((estimatedGas * 1.2) | 0).toString('hex');
 
                 const decimalAmount = this.fromBigInt(pending.amount);
 

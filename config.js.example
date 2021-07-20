@@ -6,7 +6,7 @@ const coins = [
         type: 'Satoshi',
         options: {
             coin: 'BTC',
-            coin_denomination: 8,
+            decimals: 8,
             database_path: './database.db',
             backend_options: {
                 host: '127.0.0.1',

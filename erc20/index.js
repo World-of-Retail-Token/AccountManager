@@ -216,12 +216,13 @@ class ERC20 {
                 };
 
                 // Estimate used gas
-                const estimatedGas = await backend.eth.estimateGas(transactionObject);
-
+                const estimatedGas = 1.2 * await backend.eth.estimateGas(transactionObject) | 0;
                 // Get gas price
                 const gasPrice = await backend.eth.getGasPrice();
+                // gas*gasPrice
+                const gasValue = BigInt(estimatedGas) * BigInt(gasPrice);
 
-                console.log('[Withdrawal] Gas amount %s, Gas price %s %s, total gas value %s %s', estimatedGas, Web3.utils.fromWei(gasPrice, 'Ether'), this.coin, Web3.utils.fromWei(gasValue.toString(), 'Ether'), this.coin);
+                console.log('[Withdrawal] Gas amount %s, Gas price %s ETH, total gas value %s ETH', estimatedGas, Web3.utils.fromWei(gasPrice, 'Ether'), Web3.utils.fromWei(gasValue.toString(), 'Ether'));
 
                 // Set gas price and limit
                 transactionObject.gasPrice = new Web3.utils.BN(gasPrice).toString('hex');
@@ -229,7 +230,7 @@ class ERC20 {
 
                 const decimalAmount = this.fromBigInt(pending.amount);
 
-                console.log('[Withdrawal] Signing withdrawal transaction of %s %s to address %s for user %s', amountDecimal, this.coin, pending.address, pending.userId.toString('hex'));
+                console.log('[Withdrawal] Signing withdrawal transaction of %s %s to address %s for user %s', decimalAmount, this.coin, pending.address, pending.userId.toString('hex'));
 
                 // Sign transaction
                 const signed = await backend.eth.signTransaction(transactionObject);

@@ -115,7 +115,7 @@ class ERC20 {
             // Iterate through new token transactions
             for (const record of incoming) {
                 // Ignore spam deposits
-                const amount_in_units = BigInt(record.amount);
+                const amount_in_units = this.toBigInt(record.amount);
                 if (amount_in_units < this.minimum_amount || !awaitingDeposits.has(amount_in_units))
                     continue;
 

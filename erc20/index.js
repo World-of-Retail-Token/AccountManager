@@ -273,20 +273,20 @@ class ERC20 {
                     // Update account transfer amounts
                     {
                         let {deposit, withdrawal} = this.db.getAccountStats(pending.userId);
-                        this.db.setAccountStats(pending.userId, deposit, (BigInt(withdrawal) + amount_in_units).toString());
+                        this.db.setAccountStats(pending.userId, deposit, (BigInt(withdrawal) + BigInt(pending.amount)).toString());
                     }
 
                     // Update global transfer amounts
                     {
                         let {deposit, withdrawal} = this.db.getGlobalStats();
-                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + amount_in_units).toString());
+                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + BigInt(pending.amount)).toString());
                     }
 
                     // Delete pending record for current user
                     this.db.deletePending(pending.userId);
 
                     // insert transaction record
-                    this.db.insertWithdrawalTransaction(pending.userId, amount_in_units.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
+                    this.db.insertWithdrawalTransaction(pending.userId, pending.amount, txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
 
                 })();
 

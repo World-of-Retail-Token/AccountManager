@@ -488,7 +488,7 @@ class ERC20 {
         const userId = Buffer.from(userIdHex, 'hex');
         if (undefined !== this.db.getAccountPending(userId))
             throw new Error('Already have sheduled payout for account ' + userIdHex);
-        if (undefined !== this.db.getUserId(address))
+        if (address == this.root_provider.getAddress())
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
         // Convert amount to minimal units
         const amount_in_units = this.toBigInt(amount);

@@ -94,6 +94,8 @@ class ERC20 {
             return this.error;
         }
 
+        console.log('[Deposit] Checking for new %s deposits', this.coin);
+
         try {
             // Get list of awaiting deposits
             const awaitingDeposits = this.db.getAwaitingDeposits();
@@ -180,12 +182,16 @@ class ERC20 {
             return this.error;
         }
 
+        console.log('[Withdrawal] Checking for new %s withdrawals', this.coin);
+
         // ERC20 contract interface
         const contract = new backend.eth.Contract(standardAbi, this.contract_address, {from: this.root_provider.getAddress()});
 
         try {
             const pending_records = this.db.getPending();
             if (0 == pending_records.length) return;
+
+            console.log('[Withdrawal] Found %d queued withdrawal requests', pending_records.length);
 
             // Web3 backend
             const backend = new Web3(this.root_provider);

@@ -40,6 +40,8 @@ class Buterin {
             return this.error;
         }
 
+        console.log('[Deposit] Checking for new %s deposits', this.coin);
+
         try {
             const address_records = this.db.getAddresses();
             if (address_records.length == 0)
@@ -167,10 +169,14 @@ class Buterin {
             return this.error;
         }
 
+        console.log('[Withdrawal] Checking for new %s withdrawals', this.coin);
+
         try {
             // Get pending withdrawals array
             const pending_records = this.db.getPending();
             if (0 == pending_records.length) return;
+
+            console.log('[Withdrawal] Found %d queued withdrawal requests', pending_records.length);
 
             // Init new Web3 instance for root HD provider
             const backend = new Web3(this.root_provider);

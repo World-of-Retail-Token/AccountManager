@@ -410,10 +410,14 @@ class Buterin {
         const userId = Buffer.from(userIdHex, 'hex');
         const existing = this.db.getAddress(userId);
         if (existing)
-            return existing;
+            return existing.address;
         const address = this.getHDProvider(this.db.getTopIdx() + 1).getAddress();
         this.db.insertAddress(userId, address);
         return address;
+    }
+
+    async getAwaitingDeposits(userIdHex) {
+        return [{ address: await this.getAddress(userIdHex)}];
     }
 
     /**

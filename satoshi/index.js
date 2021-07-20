@@ -272,6 +272,10 @@ class Satoshi {
         return address;
     }
 
+    async getAwaitingDeposits(userIdHex) {
+        return [{ address : await this.getAddress(userIdHex)}];
+    }
+
     /**
      * Get fund transfer statistics for given account
      *

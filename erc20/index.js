@@ -99,7 +99,7 @@ class ERC20 {
         try {
             // Get list of awaiting deposits
             const awaitingDeposits = this.db.getAwaitingDeposits();
-            if (0 == awaitingDeposits.size())
+            if (0 == awaitingDeposits.size)
                 return;
 
             // Block after last scanned block height
@@ -182,6 +182,9 @@ class ERC20 {
             return this.error;
         }
 
+        // Web3 backend
+        const backend = new Web3(this.root_provider);
+
         console.log('[Withdrawal] Checking for new %s withdrawals', this.coin);
 
         // ERC20 contract interface
@@ -192,9 +195,6 @@ class ERC20 {
             if (0 == pending_records.length) return;
 
             console.log('[Withdrawal] Found %d queued withdrawal requests', pending_records.length);
-
-            // Web3 backend
-            const backend = new Web3(this.root_provider);
 
             for (const pending of pending_records) {
 
@@ -323,6 +323,9 @@ class ERC20 {
         if (!require('bip39').validateMnemonic(config.mnemonic))
             throw new Error('mnemonic field is not a valid bip39 mnemonic');
 
+        if (!Web3.utils.isAddress(config.contract_address))
+            throw new Error('contract_address field must provide correct address');
+
         // We only need these references once
         const Database = require('./src/database');;
 
@@ -380,7 +383,10 @@ class ERC20 {
 
         try {
             this.db.insertAwaitingDeposit(userId, amount_in_units.toString());
-            return true;
+            return {
+                address: this.root_provider.getAddress(),
+                amount: this.fromBigInt(amount_in_units)
+            };
         } catch(e) {
             console.log('Failed to insert awaiting deposit entry');
             console.log(e);
@@ -398,6 +404,7 @@ class ERC20 {
         let result = this.db.getAwaitingDepositsForId(userId);
         for (let entry of result) {
             delete entry.userId;
+            entry.address = this.root_provider.getAddress();
             entry.amount = this.fromBigInt(entry.amount);
         }
         return result;

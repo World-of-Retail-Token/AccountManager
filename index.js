@@ -156,6 +156,16 @@ server.addMethod('setDeposit', ({coin, user, amount}) => {
     }
 });
 
+server.addMethod('getDeposit', ({coin, user}) => {
+    const backend = getBackend(coin);
+    switch (backend.getDistinction()) {
+        case 'address': case 'amount': 
+            return backend.getAwaitingDeposits(user);
+        // TODO: tag distinction
+        default: throw new Error('Unknown distinction type');
+    }
+});
+
 server.addMethod('getProxyInfo', ({coin}) => getBackend(coin).getProxyInfo());
 server.addMethod('getStats', ({coin, user}) => getBackend(coin).getAccountInfo(user));
 server.addMethod('listDeposits', ({coin, user, skip}) => getBackend(coin).getAccountDeposits(user, skip));

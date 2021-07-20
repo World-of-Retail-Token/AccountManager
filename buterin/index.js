@@ -24,6 +24,22 @@ class Buterin {
 
     // Error object
     error = null;
+    
+    /**
+     * Convert decimal string or float value to bigint representation
+     * @amount Value to be converted
+     */
+    toBigInt(amount) {
+        return BigInt(Web3.utils.toWei(amount.toString(), 'Ether'));
+    }
+
+    /**
+     * Convert bigint representation to decimal string value
+     * @amount Value to be converted
+     */
+    fromBigInt(units) {
+        return Web3.utils.fromWei(units.toString(), 'Ether');
+    }
 
     /**
      * Init HD provider for given account index
@@ -84,9 +100,9 @@ class Buterin {
                 const depositAmount = BigInt(pending) - gasValue;
 
                 // Convert value
-                const amountDecimal = Web3.utils.fromWei(depositAmount.toString(), 'Ether');
+                const amountDecimal = this.fromBigInt(depositAmount);
 
-                console.log('[Deposit] Gas amount %s, Gas price %s %s, total gas value %s %s, final deposit amount %s %s', gas, Web3.utils.fromWei(gasPrice, 'Ether'), this.coin, Web3.utils.fromWei(gasValue.toString(), 'Ether'), this.coin, amountDecimal, this.coin);
+                console.log('[Deposit] Gas amount %s, Gas price %s %s, total gas value %s %s, final deposit amount %s %s', gas, this.fromBigInt(gasPrice), this.coin, this.fromBigInt(gasValue), this.coin, amountDecimal, this.coin);
 
                 // Transaction fields
                 const transactionObject = {
@@ -197,7 +213,7 @@ class Buterin {
                 const gasValue = BigInt(estimatedGas) * BigInt(gasPrice);
                 const withdrawalAmount = BigInt(pending.amount) - gasValue;
 
-                console.log('[Withdrawal] Gas amount %s, Gas price %s %s, total gas value %s %s', estimatedGas, Web3.utils.fromWei(gasPrice, 'Ether'), this.coin, Web3.utils.fromWei(gasValue.toString(), 'Ether'), this.coin);
+                console.log('[Withdrawal] Gas amount %s, Gas price %s %s, total gas value %s %s', estimatedGas, this.fromBigInt(gasPrice), this.coin, this.fromBigInt(gasValue), this.coin);
 
                 // Transaction fields
                 const transactionObject = {
@@ -210,7 +226,7 @@ class Buterin {
                 };
 
                 // Convert value
-                const amountDecimal = Web3.utils.fromWei(withdrawalAmount.toString(), 'Ether');
+                const amountDecimal = this.fromBigInt(withdrawalAmount);
 
                 console.log('[Withdrawal] Signing withdrawal transaction of %s %s to address %s for user %s', amountDecimal, this.coin, pending.address, pending.userId.toString('hex'));
 
@@ -233,7 +249,7 @@ class Buterin {
 
                     // Rejects must be handled manually
                     rejected.push({
-                        amount: Web3.utils.fromWei(pending.amount, 'Ether'),
+                        amount: this.fromBigInt(pending.amount),
                         address: pending.address,
                         coin: this.coin,
                         userId: pending.userId.toString('hex')
@@ -319,7 +335,7 @@ class Buterin {
         this.provider = new Web3.providers.WebsocketProvider(config.web3_url);
 
         // Remember limits
-        this.minimum_amount = BigInt(Web3.utils.toWei((config.minimum_amount || 0.0001).toString()));
+        this.minimum_amount = this.toBigInt(config.minimum_amount || 0.0001);
 
         // Remember mnemonic
         this.mnemonic = config.mnemonic;
@@ -344,8 +360,8 @@ class Buterin {
             coinDecimals: 18,
             distinction: this.getDistinction(),
             globalStats: {
-                deposit: Web3.utils.fromWei(deposit, 'Ether'),
-                withdrawal: Web3.utils.fromWei(withdrawal, 'Ether')
+                deposit: this.fromBigInt(deposit),
+                withdrawal: this.fromBigInt(withdrawal)
             }
         }
     }
@@ -376,8 +392,8 @@ class Buterin {
         const userId = Buffer.from(userIdHex, 'hex');
         const {deposit, withdrawal} = this.db.getAccountStats(userId)
         return {
-            deposit: Web3.utils.fromWei(deposit, 'Ether'),
-            withdrawal: Web3.utils.fromWei(withdrawal, 'Ether')
+            deposit: this.fromBigInt(deposit),
+            withdrawal: this.fromBigInti(withdrawal)
         };
     }
 
@@ -393,7 +409,7 @@ class Buterin {
             delete entry.userId;
             entry.txHash = entry.txHash.toString('hex');
             entry.blockHash = entry.blockHash.toString('hex');
-            entry.amount = Web3.utils.fromWei(entry.amount, 'Ether');
+            entry.amount = this.fromBigInt(entry.amount);
         }
         return result;
     }
@@ -410,7 +426,7 @@ class Buterin {
             delete entry.userId;
             entry.txHash = entry.txHash.toString('hex');
             entry.blockHash = entry.blockHash.toString('hex');
-            entry.amount = Web3.utils.fromWei(entry.amount, 'Ether');
+            entry.amount = this.fromBigInt(entry.amount);
         }
         return result;
     }
@@ -424,7 +440,7 @@ class Buterin {
         const userId = Buffer.from(userIdHex, 'hex');
         let entry = this.db.getAccountPending(userId);
         if (entry) {
-            entry.amount = Web3.utils.fromWei(entry.amount, 'Ether');
+            entry.amount = this.fromBigInt(entry.amount);
             delete entry.userId;
         }
         return entry;
@@ -448,7 +464,7 @@ class Buterin {
         if (undefined !== this.db.getUserId(address))
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
         // Convert amount to minimal units
-        const amount_in_wei = Web3.utils.toWei(amount.toString(), 'Ether');
+        const amount_in_wei = this.toBigInt(amount, 'Ether');
         if (BigInt(amount_in_wei) < this.minimum_amount)
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         this.db.insertPending(userId, address, amount_in_wei.toString());

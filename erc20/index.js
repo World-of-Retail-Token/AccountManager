@@ -53,7 +53,7 @@ class ERC20 {
     minimum_amount;
 
     // Decimals
-    denomination;
+    decimals;
 
     // Token contract address
     contract_address;
@@ -73,7 +73,7 @@ class ERC20 {
      */
     toBigInt(amount) {
         let [ints, decis] = String(amount.toString()).split(".").concat("");
-        decis = decis.padEnd(BigDecimal.decimals, "0");
+        decis = decis.padEnd(this.decimals, "0");
         return BigInt(ints + decis);
     }
 
@@ -82,8 +82,8 @@ class ERC20 {
      * @amount Value to be converted
      */
     fromBigInt(units) {
-        const s = units.toString().padStart(this.token_decimals + 1, "0");
-        return s.slice(0, -this.token_decimals) + "." + s.slice(-this.token_decimals).replace(/\.?0+$/, "");
+        const s = units.toString().padStart(this.decimals + 1, "0");
+        return s.slice(0, -this.decimals) + "." + s.slice(-this.decimals).replace(/\.?0+$/, "");
     }
 
     async pollBackend(processed = []) {
@@ -108,7 +108,7 @@ class ERC20 {
             // Web3 backend
             const backend = new Web3(this.root_provider);
 
-            const incoming = await listERC20Transactions(backend, this.contract_address, this.token_decimals, this.root_provider.getAddress(), fromBlock);
+            const incoming = await listERC20Transactions(backend, this.contract_address, this.decimals, this.root_provider.getAddress(), fromBlock);
             if (0 == incoming.length)
                 return;
 

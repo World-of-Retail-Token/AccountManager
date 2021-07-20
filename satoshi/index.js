@@ -14,8 +14,7 @@ class Satoshi {
     minimum_confirmations;
 
     // Coin denomination
-    coin_denomination;
-    coin_decimals;
+    decimals;
 
     // Coin name
     coin;
@@ -27,13 +26,22 @@ class Satoshi {
     unlock_password;
 
     /**
-     * Convert amount in satoshi to decimal string representation
-     *
-     * @sat Amount to be converted
+     * Convert decimal string or float value to bigint representation
+     * @amount Value to be converted
      */
-    satoshiToCoins(sat) {
-        const s = sat.toString().padStart(this.coin_decimals + 1, "0");
-        return s.slice(0, -this.coin_decimals) + "." + s.slice(-this.coin_decimals).replace(/\.?0+$/, "");
+    toBigInt(amount) {
+        let [ints, decis] = String(amount.toString()).split(".").concat("");
+        decis = decis.padEnd(this.decimals, "0");
+        return BigInt(ints + decis);
+    }
+
+    /**
+     * Convert bigint representation to decimal string value
+     * @amount Value to be converted
+     */
+    fromBigInt(units) {
+        const s = units.toString().padStart(this.decimals + 1, "0");
+        return s.slice(0, -this.decimals) + "." + s.slice(-this.decimals).replace(/\.?0+$/, "");
     }
 
     async pollBackend(processed = []) {
@@ -58,8 +66,12 @@ class Satoshi {
 
                 // Process each record
                 for (const record of transactions) {
+                    // Convert amount to minimal units
+                    const amount_in_satoshi = this.toBigInt(record.amount);
+                    const decimalAmount = this.fromBigInt(amount_in_satoshi);
+
                     // Apply confirmation and value limits
-                    if (record.amount < this.minimum_amount || record.confirmations < this.minimum_confirmations)
+                    if (amount_in_satoshi < this.minimum_amount || record.confirmations < this.minimum_confirmations)
                         continue;
                     // If address is unknown then ignore it
                     const userId = this.db.getUserId(record.address);
@@ -79,27 +91,25 @@ class Satoshi {
 
                     // Apply database changes
                     const result = this.db.makeTransaction(() => {
-                        // Convert amount to minimal units
-                        const bnAmount = BigInt((this.coin_denomination * record.amount) | 0);
 
                         // Update account transfer amounts
                         {
                             let {deposit, withdrawal} = this.db.getAccountStats(userId);
-                            this.db.setAccountStats(userId, (BigInt(deposit) + bnAmount).toString(), withdrawal);
+                            this.db.setAccountStats(userId, (BigInt(deposit) + amount_in_satoshi).toString(), withdrawal);
                         }
 
                         // Update global transfer amounts
                         {
                             let {deposit, withdrawal} = this.db.getGlobalStats();
-                            this.db.setGlobalStats((BigInt(deposit) + bnAmount).toString(), withdrawal);
+                            this.db.setGlobalStats((BigInt(deposit) + amount_in_satoshi).toString(), withdrawal);
                         }
 
                         // insert transaction record
-                        this.db.insertTransaction(userId, bnAmount.toString(), txHash, record.vout, blockHash, record.blockheight, record.blocktime);
+                        this.db.insertTransaction(userId, decimalAmount, txHash, record.vout, blockHash, record.blockheight, record.blocktime);
 
                         // Will be handled by caller
                         processed.push({
-                            amount: record.amount,
+                            amount: decimalAmount,
                             coin: this.coin,
                             blockHash: record.blockhash,
                             blockHeight: record.blockheight,
@@ -109,7 +119,7 @@ class Satoshi {
                             vout: record.vout
                         });
 
-                        console.log('Processed deposit transaction %s (%f %s) for account %s', record.txid, record.amount, this.coin, userId.toString('hex'));
+                        console.log('Processed deposit transaction %s (%f %s) for account %s', record.txid, decimalAmount, this.coin, userId.toString('hex'));
                     })();
                 }
             }
@@ -142,13 +152,12 @@ class Satoshi {
             }
 
             for (const {userId, amount, address} of pending) {
-                const bnAmount = BigInt(amount);
-                const real_amount = this.satoshiToCoins(bnAmount);
+                const decimalAmount = this.fromBigInt(amount);
 
                 // Enqueue and wait for transaction id
                 const txid = await this.backend.sendToAddress({
                     address : address,
-                    amount: Number(real_amount),
+                    amount: Number(decimalAmount),
                     comment: userId.toString('hex')
                 });
 
@@ -156,12 +165,12 @@ class Satoshi {
                     // Update account transfer amounts
                     {
                         let {deposit, withdrawal} = this.db.getAccountStats(userId);
-                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + bnAmount).toString());
+                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + BigInt(amount)).toString());
                     }
                     // Update global transfer amounts
                     {
                         let {deposit, withdrawal} = this.db.getGlobalStats();
-                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + bnAmount).toString());
+                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + BigInt(amount)).toString());
                     }
 
                     // Delete pending record for current user
@@ -174,13 +183,13 @@ class Satoshi {
 
                 // Will be handled by caller
                 processed.push({
-                    amount: real_amount,
+                    amount: decimalAmount,
                     coin: this.coin,
                     txid,
                     userId: userId.toString('hex')
                 });
 
-                console.log('Processed withdrawal transaction %s %s (%f %s) for account %s', txid, address, real_amount, this.coin, userId.toString('hex'));
+                console.log('Processed withdrawal transaction %s %s (%s %s) for account %s', txid, address, decimalAmount, this.coin, userId.toString('hex'));
             }
         }
         catch(e) {
@@ -206,13 +215,12 @@ class Satoshi {
         // Receive addresses label
         this.label = config.label || 'incoming';
 
-        // Remember limits
-        this.minimum_amount = config.minimum_amount || 0.0001;
-        this.minimum_confirmations = config.minimum_confirmations || 6;
-
         // Remember denomination
-        this.coin_decimals = config.coin_denomination || 8;
-        this.coin_denomination = 10 ** this.coin_decimals;
+        this.decimals = config.decimals || 8;
+
+        // Remember limits
+        this.minimum_amount = this.toBigInt(config.minimum_amount || 0.0001);
+        this.minimum_confirmations = config.minimum_confirmations || 6;
 
         // Remember coin name
         this.coin = config.coin;
@@ -238,11 +246,11 @@ class Satoshi {
 
         return {
             coinType: 'satoshi',
-            coinDecimals: this.coin_decimals,
+            coinDecimals: this.decimals,
             distinction: this.getDistinction(),
             globalStats: {
-                deposit: this.satoshiToCoins(deposit),
-                withdrawal: this.satoshiToCoins(withdrawal)
+                deposit: this.fromBigInt(deposit),
+                withdrawal: this.FromBigInt(withdrawal)
             }
         }
     }
@@ -273,8 +281,8 @@ class Satoshi {
         const userId = Buffer.from(userIdHex, 'hex');
         const {deposit, withdrawal} = this.db.getAccountStats(userId)
         return {
-            deposit: this.satoshiToCoins(deposit),
-            withdrawal: this.satoshiToCoins(withdrawal)
+            deposit: this.fromBigInt(deposit),
+            withdrawal: this.fromBigInt(withdrawal)
         };
     }
 
@@ -290,7 +298,7 @@ class Satoshi {
             delete entry.userId;
             entry.txHash = entry.txHash.toString('hex');
             entry.blockHash = entry.blockHash.toString('hex');
-            entry.amount = this.satoshiToCoins(entry.amount);
+            entry.amount = this.fromBigInt(entry.amount);
         }
         return result;
     }
@@ -306,7 +314,7 @@ class Satoshi {
         for (let entry of result) {
             delete entry.userId;
             entry.txHash = entry.txHash.toString('hex');
-            entry.amount = this.satoshiToCoins(entry.amount);
+            entry.amount = this.fromBigInt(entry.amount);
         }
         return result;
     }
@@ -320,7 +328,7 @@ class Satoshi {
         const userId = Buffer.from(userIdHex, 'hex');
         let entry = this.db.getAccountPending(userId);
         if (entry) {
-            entry.amount = this.satoshiToCoins(entry.amount);
+            entry.amount = this.fromBigInt(entry.amount);
             delete entry.userId;
         }
         return entry;
@@ -341,11 +349,11 @@ class Satoshi {
             throw new Error('Already have sheduled payout for account ' + userIdHex);
         if (undefined !== this.db.getUserId(address))
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
-        if (amount < this.minimum_amount)
-            throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         // Convert amount to minimal units
-        const bnAmount = BigInt((this.coin_denomination * amount) | 0);
-        this.db.insertPending(userId, address, bnAmount.toString());
+        const amount_in_satoshi = this.toBigInt(amount);
+        if (amount_in_satoshi < this.minimum_amount)
+            throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
+        this.db.insertPending(userId, address, amount_in_satoshi.toString());
     }
 }
 

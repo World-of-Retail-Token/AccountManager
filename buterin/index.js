@@ -63,6 +63,9 @@ class Buterin {
             if (address_records.length == 0)
                 return;
 
+            // Root account address
+            const rootAddress = this.root_provider.getAddress();
+
             // Iterate through addresses
             for (const {userId, address, idx} of address_records) {
                 // Ensure that address is derived from configured mnemonic
@@ -112,7 +115,7 @@ class Buterin {
                 const transactionObject = {
                     from: address,
                     nonce: Web3.utils.toHex(nonce),
-                    to: this.root_provider.getAddress(),
+                    to: rootAddress,
                     value: Web3.utils.toHex(depositAmount.toString()),
                     gasPrice: '0x' + new Web3.utils.BN(gasPrice).toString('hex'),
                     gas: '0x' + new Web3.utils.BN(gas).toString('hex')
@@ -131,7 +134,7 @@ class Buterin {
                 console.log('[Deposit] Confirmed in block %d', receipt.blockNumber);
 
                 // Check root account balance
-                const rootBalance = await backend.eth.getBalance(this.root_provider.getAddress());
+                const rootBalance = await backend.eth.getBalance(rootAddress);
                 console.log('[Deposit] New root account balance is %s %s', this.fromBigInt(rootBalance), this.coin);
 
                 // Block data object
@@ -230,7 +233,7 @@ class Buterin {
 
                 // Estimate required gas amount
                 console.log('[Withdrawal] Estimating gas amount for transfer to %s ...', pending.address);
-                const estimatedGas = await backend.eth.estimateGas({ from: this.root_provider.getAddress(), nonce: Web3.utils.toHex(nonce), to: this.root_provider.getAddress(), value: Web3.utils.toHex(pending.amount) });
+                const estimatedGas = await backend.eth.estimateGas({ from: rootAddress, nonce: Web3.utils.toHex(nonce), to: pending.address, value: Web3.utils.toHex(pending.amount) });
 
                 // Get gas price and calculate total gas value
                 const gasPrice = await backend.eth.getGasPrice();
@@ -247,7 +250,7 @@ class Buterin {
 
                 // Transaction fields
                 const transactionObject = {
-                    from: this.root_provider.getAddress(),
+                    from: rootAddress,
                     nonce: Web3.utils.toHex(nonce),
                     to: pending.address,
                     value: Web3.utils.toHex(withdrawalAmount.toString()),

@@ -16,7 +16,7 @@ const coins = [
                 version: `${Number.MAX_SAFE_INTEGER}.0.0`
             },
             minimum_amount: 0.00001,
-            minimum_confirmations: 3,
+            confirmations: 3,
         }
     }
 ];

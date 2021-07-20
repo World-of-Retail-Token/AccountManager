@@ -11,7 +11,7 @@ class Satoshi {
 
     // Limits
     minimum_amount;
-    minimum_confirmations;
+    confirmations;
 
     // Coin denomination
     decimals;
@@ -71,7 +71,7 @@ class Satoshi {
                     const decimalAmount = this.fromBigInt(amount_in_satoshi);
 
                     // Apply confirmation and value limits
-                    if (amount_in_satoshi < this.minimum_amount || record.confirmations < this.minimum_confirmations)
+                    if (amount_in_satoshi < this.minimum_amount || record.confirmations < this.confirmations)
                         continue;
                     // If address is unknown then ignore it
                     const userId = this.db.getUserId(record.address);
@@ -220,7 +220,7 @@ class Satoshi {
 
         // Remember limits
         this.minimum_amount = this.toBigInt(config.minimum_amount || 0.0001);
-        this.minimum_confirmations = config.minimum_confirmations || 6;
+        this.confirmations = Number(config.confirmations || 6);
 
         // Remember coin name
         this.coin = config.coin;

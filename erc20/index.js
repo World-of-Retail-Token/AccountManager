@@ -338,9 +338,13 @@ class ERC20 {
         // Init root provider
         this.root_provider = new HDWalletProvider({mnemonic: config.mnemonic, providerOrUrl: provider, addressIndex: 0});
 
-        // Remember limits
         this.decimals = config.decimals;
+
+        // Remember limits
         this.minimum_amount = this.toBigInt(config.minimum_amount || 0.0001);
+
+        // Deposit confirmations
+        this.confirmations = Number(config.confirmations || 24);
 
         // Remember coin name
         this.coin = config.coin;

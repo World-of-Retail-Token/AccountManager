@@ -39,11 +39,6 @@ for (const coin of coins) {
     backends.set(coin.name, new proxy_classes[coin.type](coin.options));
 }
 
-// Init processing timers
-
-let deposit_processing, withdrawal_processing;
-const schedule_deposit_processing = () => { deposit_processing = setTimeout(process_deposits, 10000); };
-const schedule_withdrawal_processing = () => { withdrawal_processing = setTimeout(process_withdrawals, 10000); };
 
 const process_deposits = async() => {
     let processed = [];
@@ -70,10 +65,7 @@ const process_deposits = async() => {
             insert_processed_deposit.run(JSON.stringify(entry));
     })();
 
-    if (!dirty) {
-        // Schedule next call
-        schedule_deposit_processing();
-    }
+    return dirty;
 };
 
 const process_withdrawals = async() => {
@@ -103,15 +95,25 @@ const process_withdrawals = async() => {
             insert_rejected_withdrawal.run(JSON.stringify(entry));
     })();
 
+    return dirty;
+};
+
+const process = async () => {
+    let dirty;
+    dirty |= await process_withdrawals();
+    dirty |= await process_deposits();
     if (!dirty) {
         // Schedule next call
-        schedule_withdrawal_processing();
+        schedule_processing();
     }
 };
 
-// Schedule first calls
-schedule_deposit_processing();
-schedule_withdrawal_processing();
+// Init processing timer
+let processing_timer;
+const schedule_processing = () => { processing_timer = setTimeout(process, 5000); };
+
+// Schedule first call
+schedule_processing();
 
 // Find backend or throw error
 function getBackend(coin) {

@@ -74,8 +74,12 @@ class Buterin {
                 // Init new Web3 instance for user-specific HD provider
                 const backend = new Web3(addrHDProvider);
 
-                // Get pending balance
-                const pending = await backend.eth.getBalance(address, "pending");
+                // Get pending and confirmed balance
+                const [pending, confirmed] = await Promise.all([backend.eth.getBalance(address, "pending"), backend.eth.getBalance(address, "latest")]);
+
+                // Don't process unless there are no unconfirmed transactions
+                if (pending != confirmed)
+                    continue;
 
                 // Don't process unless we have more than minimal balance
                 if (BigInt(pending) < this.minimum_amount)
@@ -83,8 +87,8 @@ class Buterin {
 
                 console.log('[Deposit] Address %s balance is greater than threshold, getting transaction nonce ...', address);
 
-                // Current transaction count (including unconfirmed)
-                const nonce = await backend.eth.getTransactionCount(address, "pending");
+                // Current transaction count
+                const nonce = await backend.eth.getTransactionCount(address);
 
                 console.log('[Deposit] Nonce is %d', nonce);
 
@@ -125,6 +129,10 @@ class Buterin {
                 const receipt = await backend.eth.sendSignedTransaction(signed.raw);
 
                 console.log('[Deposit] Confirmed in block %d', receipt.blockNumber);
+
+                // Check root account balance
+                const rootBalance = await backend.eth.getBalance(this.root_provider.getAddress());
+                console.log('[Deposit] New root account balance is %s %s', this.fromBigInt(rootBalance), this.coin);
 
                 // Block data object
                 const block = await backend.eth.getBlock(receipt.blockNumber);
@@ -197,12 +205,28 @@ class Buterin {
             // Init new Web3 instance for root HD provider
             const backend = new Web3(this.root_provider);
 
+            // Root account address
+            const rootAddress = this.root_provider.getAddress();
+
             for (const pending of pending_records) {
 
-                // Current transaction sequence
                 console.log('[Withdrawal] Getting transaction nonce');
-                const nonce = await backend.eth.getTransactionCount(this.root_provider.getAddress());
+
+                // Get pending and confirmed transaction count for root account
+                const [root_pending, root_confirmed] = await Promise.all([backend.eth.getTransactionCount(rootAddress, "pending"), backend.eth.getTransactionCount(rootAddress, "latest")]);
+
+                // These values must be equal
+                //   If these are not then something is wrong
+                if (root_pending != root_confirmed)
+                    break;
+
+                // Current transaction sequence
+                const nonce = root_pending;
                 console.log('[Withdrawal] Nonce is %d', nonce);
+
+                // Check root account balance
+                const rootBalance = await backend.eth.getBalance(rootAddress);
+                console.log('[Withdrawal] Root account balance is %s %s', this.fromBigInt(rootBalance), this.coin);
 
                 // Estimate required gas amount
                 console.log('[Withdrawal] Estimating gas amount for transfer to %s ...', pending.address);
@@ -214,6 +238,12 @@ class Buterin {
                 const withdrawalAmount = BigInt(pending.amount) - gasValue;
 
                 console.log('[Withdrawal] Gas amount %s, Gas price %s %s, total gas value %s %s', estimatedGas, this.fromBigInt(gasPrice), this.coin, this.fromBigInt(gasValue), this.coin);
+
+                // If pending withdrawal amount is greater than or equal to
+                //    root balance then we have fatal error
+                if (BigInt(pending.amount) >= BigInt(rootBalance)) {
+                    throw new Error('Root account balance is unsufficient for scheduled payment');
+                }
 
                 // Transaction fields
                 const transactionObject = {

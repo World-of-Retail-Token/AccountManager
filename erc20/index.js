@@ -170,7 +170,7 @@ class ERC20 {
         }
     }
 
-    async processPending(processed = []) {
+    async processPending(processed = [], rejected = []) {
 
         // If there was an error then
         //  just return it and do nothing
@@ -186,6 +186,24 @@ class ERC20 {
             const backend = new Web3(this.root_provider);
 
             for (const pending of pending_records) {
+
+                // Reject if destination address is a contract
+                if ((await backend.eth.getCode(pending.address)) !== '0x') {
+
+                    // Delete from processing queue
+                    this.db.deletePending(pending.userId);
+
+                    // Must be handled manually
+                    rejected.push({
+                        amount: amountDecimal,
+                        address: pending.address,
+                        coin: this.coin,
+                        userId: pending.userId.toString('hex')
+                    });
+
+                    continue;
+                }
+
                 // Get gas price and nonce
                 const nonce = await backend.eth.getTransactionCount(this.root_provider.getAddress());
                 const gasPrice = await backend.eth.getGasPrice();
@@ -230,8 +248,8 @@ class ERC20 {
 
                     // Update account transfer amounts
                     {
-                        let {deposit, withdrawal} = this.db.getAccountStats(userId);
-                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + amount_in_units).toString());
+                        let {deposit, withdrawal} = this.db.getAccountStats(pending.userId);
+                        this.db.setAccountStats(pending.userId, deposit, (BigInt(withdrawal) + amount_in_units).toString());
                     }
 
                     // Update global transfer amounts
@@ -241,10 +259,10 @@ class ERC20 {
                     }
 
                     // Delete pending record for current user
-                    this.db.deletePending(userId);
+                    this.db.deletePending(pending.userId);
 
                     // insert transaction record
-                    this.db.insertWithdrawalTransaction(userId, amount_in_units.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
+                    this.db.insertWithdrawalTransaction(pending.userId, amount_in_units.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
 
                 })();
 
@@ -256,10 +274,10 @@ class ERC20 {
                     blockHeight: receipt.blockNumber,
                     blockTime: block.timestamp,
                     txHash: receipt.transactionHash.slice(2),
-                    userId: userId.toString('hex'),
+                    userId: pending.userId.toString('hex'),
                 });
 
-                console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, decimalAmount, this.coin, userId.toString('hex'));
+                console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, decimalAmount, this.coin, pending.userId.toString('hex'));
             }
         }
         catch(e) {
@@ -434,6 +452,8 @@ class ERC20 {
     setAccountPending(userIdHex, address, amount) {
         if (this.error !== null)
             throw this.error;
+        if (!Web3.utils.isAddress(address))
+            throw new Error('Invalid receiving address');
         const userId = Buffer.from(userIdHex, 'hex');
         if (undefined !== this.db.getAccountPending(userId))
             throw new Error('Already have sheduled payout for account ' + userIdHex);

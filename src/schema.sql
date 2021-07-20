@@ -8,4 +8,8 @@ CREATE TABLE IF NOT EXISTS processed_withdrawals(
     json TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS rejected_withdrawals(
+    json TEXT NOT NULL
+);
+
 COMMIT;

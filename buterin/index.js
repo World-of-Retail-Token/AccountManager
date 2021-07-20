@@ -63,8 +63,14 @@ class Buterin {
                 if (BigInt(pending) < this.minimum_amount)
                     continue;
 
+                console.log('[Deposit] Address %s balance is greater than threshold, getting transaction nonce ...', address);
+
                 // Current transaction count (including unconfirmed)
                 const nonce = await backend.eth.getTransactionCount(address, "pending");
+
+                console.log('[Deposit] Nonce is %d', nonce);
+
+                console.log('[Deposit] Estimating gas value for transfer from ...', address);
 
                 // Get gas price and calculate total gas value
                 const gas = 21000;
@@ -74,6 +80,11 @@ class Buterin {
                 // Deduct estimated total gas price from amount
                 //  Note that we're using pending balane here
                 const depositAmount = BigInt(pending) - gasValue;
+
+                // Convert value
+                const amountDecimal = Web3.utils.fromWei(depositAmount.toString(), 'Ether');
+
+                console.log('[Deposit] Gas amount %s, Gas price %s %s, total gas value %s %s, final deposit amount %s %s', gas, Web3.utils.fromWei(gasPrice, 'Ether'), this.coin, Web3.utils.fromWei(gasValue.toString(), 'Ether'), this.coin, amountDecimal, this.coin);
 
                 // Transaction fields
                 const transactionObject = {
@@ -85,11 +96,17 @@ class Buterin {
                     gas: '0x' + new Web3.utils.BN(gas).toString('hex')
                 };
 
+                console.log('[Deposit] Signing deposit transaction of %s %s from address %s for user %s', amountDecimal, this.coin, address, userId.toString('hex'));
+
                 // Sign transaction
                 const signed = await backend.eth.signTransaction(transactionObject);
 
+                console.log('[Deposit] Trying to submit ...');
+
                 // Send and wait for confirmation
                 const receipt = await backend.eth.sendSignedTransaction(signed.raw);
+
+                console.log('[Deposit] Confirmed in block %d', receipt.blockNumber);
 
                 // Block data object
                 const block = await backend.eth.getBlock(receipt.blockNumber);
@@ -97,9 +114,6 @@ class Buterin {
                 // Convert hashes to buffers
                 const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
                 const blockHash = Buffer.from(receipt.blockHash.slice(2), 'hex');
-
-                // Convert value
-                const amountDecimal = Web3.utils.fromWei(depositAmount.toString(), 'Ether');
 
                 // Apply database changes
                 this.db.makeTransaction(() => {
@@ -132,7 +146,7 @@ class Buterin {
 
                 })();
 
-                console.log('Processed deposit transaction %s (%f %s) for account %s', receipt.transactionHash, amountDecimal, this.coin, userId.toString('hex'));
+                console.log('[Deposit] Processed deposit transaction %s (%f %s) for account %s', receipt.transactionHash, amountDecimal, this.coin, userId.toString('hex'));
             }
         }
         catch(e) {
@@ -145,7 +159,7 @@ class Buterin {
         }
     }
 
-    async processPending(processed = []) {
+    async processPending(processed = [], rejected = []) {
 
         // If there was an error then
         //  just return it and do nothing
@@ -163,12 +177,21 @@ class Buterin {
 
             for (const pending of pending_records) {
 
-                // Get gas price and calculate total gas value
+                // Current transaction sequence
+                console.log('[Withdrawal] Getting transaction nonce');
                 const nonce = await backend.eth.getTransactionCount(this.root_provider.getAddress());
-                const estimatedGas = await backend.eth.estimateGas({ from: this.root_provider.getAddress(), nonce: Web3.utils.toHex(nonce), to: pending.address, value: Web3.utils.toHex(pending.amount) });
+                console.log('[Withdrawal] Nonce is %d', nonce);
+
+                // Estimate required gas amount
+                console.log('[Withdrawal] Estimating gas amount for transfer to %s ...', pending.address);
+                const estimatedGas = await backend.eth.estimateGas({ from: this.root_provider.getAddress(), nonce: Web3.utils.toHex(nonce), to: this.root_provider.getAddress(), value: Web3.utils.toHex(pending.amount) });
+
+                // Get gas price and calculate total gas value
                 const gasPrice = await backend.eth.getGasPrice();
                 const gasValue = BigInt(estimatedGas) * BigInt(gasPrice);
                 const withdrawalAmount = BigInt(pending.amount) - gasValue;
+
+                console.log('[Withdrawal] Gas amount %s, Gas price %s %s, total gas value %s %s', estimatedGas, Web3.utils.fromWei(gasPrice, 'Ether'), this.coin, Web3.utils.fromWei(gasValue.toString(), 'Ether'), this.coin);
 
                 // Transaction fields
                 const transactionObject = {
@@ -180,29 +203,53 @@ class Buterin {
                     gas: '0x' + new Web3.utils.BN(estimatedGas).toString('hex')
                 };
 
+                // Convert value
+                const amountDecimal = Web3.utils.fromWei(withdrawalAmount.toString(), 'Ether');
+
+                console.log('[Withdrawal] Signing withdrawal transaction of %s %s to address %s for user %s', amountDecimal, this.coin, pending.address, pending.userId.toString('hex'));
+
                 // Sign transaction
                 const signed = await backend.eth.signTransaction(transactionObject);
 
-                // Send and wait for confirmation
-                const receipt = await backend.sendSignedTransaction(signed.raw);
+                console.log('[Withdrawal] Trying to submit ...');
+
+                let receipt;
+                try {
+                    // Send and wait for confirmation
+                    receipt = await backend.eth.sendSignedTransaction(signed.raw);
+                } catch (e) {
+                    // Shit happens
+                    console.log('[Withdrawal] Transaction has been rejected');
+
+                    // Delete from processing queue
+                    this.db.deletePending(pending.userId);
+
+                    // Rejects must be handled manually
+                    rejected.push({
+                        amount: Web3.utils.fromWei(pending.amount, 'Ether'),
+                        address: pending.address,
+                        coin: this.coin,
+                        userId: pending.userId.toString('hex')
+                    });
+
+                }
 
                 // Block data object
                 const block = await backend.eth.getBlock(receipt.blockNumber);
 
+                console.log('[Withdrawal] Confirmed in block %d', receipt.blockNumber);
+
                 // Convert hashes to buffers
                 const txHash = Buffer.from(receipt.transactionHash.slice(2), 'hex');
                 const blockHash = Buffer.from(receipt.blockHash.slice(2), 'hex');
-
-                // Convert value
-                const amountDecimal = Web3.utils.fromWei(withdrawalAmount.toString(), 'Ether');
 
                 // Apply database changes
                 this.db.makeTransaction(() => {
 
                     // Update account transfer amounts
                     {
-                        let {deposit, withdrawal} = this.db.getAccountStats(userId);
-                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + withdrawalAmount).toString());
+                        let {deposit, withdrawal} = this.db.getAccountStats(pending.userId);
+                        this.db.setAccountStats(pending.userId, deposit, (BigInt(withdrawal) + withdrawalAmount).toString());
                     }
 
                     // Update global transfer amounts
@@ -212,25 +259,26 @@ class Buterin {
                     }
 
                     // Delete pending record for current user
-                    this.db.deletePending(userId);
+                    this.db.deletePending(pending.userId);
 
                     // insert transaction record
-                    this.db.insertWithdrawalTransaction(userId, withdrawalAmount.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
+                    this.db.insertWithdrawalTransaction(pending.userId, withdrawalAmount.toString(), txHash, blockHash, receipt.blockNumber, pending.address, block.timestamp);
 
                 })();
 
                 // Will be handled by caller
                 processed.push({
                     amount: amountDecimal,
+                    address: pending.address,
                     coin: this.coin,
                     blockHash: receipt.blockHash.slice(2),
                     blockHeight: receipt.blockNumber,
                     blockTime: block.timestamp,
                     txHash: receipt.transactionHash.slice(2),
-                    userId: userId.toString('hex'),
+                    userId: pending.userId.toString('hex'),
                 });
 
-                console.log('Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, amountDecimal, this.coin, userId.toString('hex'));
+                console.log('[Withdrawal] Processed withdrawal transaction %s (%f %s) for account %s', receipt.transactionHash, amountDecimal, this.coin, pending.userId.toString('hex'));
             }
         }
         catch(e) {
@@ -384,16 +432,18 @@ class Buterin {
     setAccountPending(userIdHex, address, amount) {
         if (this.error !== null)
             throw this.error;
+        if (!Web3.utils.isAddress(address))
+            throw new Error('Invalid receiving address');
         const userId = Buffer.from(userIdHex, 'hex');
         if (undefined !== this.db.getAccountPending(userId))
             throw new Error('Already have sheduled payout for account ' + userIdHex);
         if (undefined !== this.db.getUserId(address))
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
-        if (amount < this.minimum_amount)
-            throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         // Convert amount to minimal units
-        const bnAmount = Web3.utils.toWei(amount.toString(), 'Ether');
-        this.db.insertPending(userId, address, bnAmount.toString());
+        const amount_in_wei = Web3.utils.toWei(amount.toString(), 'Ether');
+        if (BigInt(amount_in_wei) < this.minimum_amount)
+            throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
+        this.db.insertPending(userId, address, amount_in_wei.toString());
     }
 }
 

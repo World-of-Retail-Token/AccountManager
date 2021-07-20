@@ -25,10 +25,13 @@ db.exec(schema);
 // Prepare statements
 const select_processed_deposits = db.prepare('SELECT * FROM processed_deposits');
 const select_processed_withdrawals = db.prepare('SELECT * FROM processed_withdrawals');
+const select_rejected_withdrawals = db.prepare('SELECT * FROM rejected_withdrawals');
 const insert_processed_deposit = db.prepare('INSERT INTO processed_deposits (json) VALUES (?)');
 const insert_processed_withdrawal = db.prepare('INSERT INTO processed_withdrawals (json) VALUES (?)');
+const insert_rejected_withdrawal = db.prepare('INSERT INTO rejected_withdrawals (json) VALUES (?)');
 const clean_processed_deposits = db.prepare('DELETE FROM processed_deposits');
 const clean_processed_withdrawals = db.prepare('DELETE FROM processed_withdrawals');
+const clean_rejected_withdrawals = db.prepare('DELETE FROM rejected_withdrawals');
 
 // Init coin proxies
 const backends = new Map();
@@ -74,11 +77,11 @@ const process_deposits = async() => {
 };
 
 const process_withdrawals = async() => {
-    let processed = [];
+    let processed = [], rejected = [];
     let dirty;
     try {
         for (const [coin, backend] of backends.entries()) {
-            const err = await backend.processPending(processed);
+            const err = await backend.processPending(processed, rejected);
             if (err) {
                 // Admin attention is necessary
                 console.log('Fatal error while processing withdrawals for backend %s', coin);
@@ -96,6 +99,8 @@ const process_withdrawals = async() => {
     db.transaction(() => {
         for (const entry of processed)
             insert_processed_withdrawal.run(JSON.stringify(entry));
+        for (const entry of rejected)
+            insert_rejected_withdrawal.run(JSON.stringify(entry));
     })();
 
     if (!dirty) {
@@ -130,6 +135,12 @@ server.addMethod('listProcessedDeposits', db.transaction(() => {
 server.addMethod('listProcessedWithdrawals', db.transaction(() => {
     const records = select_processed_withdrawals.all();
     clean_processed_withdrawals.run();
+    return records.map(({json}) => JSON.parse(json));
+}));
+
+server.addMethod('listRejectedWithdrawals', db.transaction(() => {
+    const records = select_rejected_withdrawals.all();
+    clean_rejected_withdrawals.run();
     return records.map(({json}) => JSON.parse(json));
 }));
 

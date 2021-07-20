@@ -220,6 +220,7 @@ class Buterin {
                 } catch (e) {
                     // Shit happens
                     console.log('[Withdrawal] Transaction has been rejected');
+                    console.log(e);
 
                     // Delete from processing queue
                     this.db.deletePending(pending.userId);
@@ -232,6 +233,7 @@ class Buterin {
                         userId: pending.userId.toString('hex')
                     });
 
+                    continue;
                 }
 
                 // Block data object

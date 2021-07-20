@@ -123,7 +123,7 @@ class ERC20 {
                 const userId = awaitingDeposits.get(amount_in_units);
                 const txHash = Buffer.from(record.transactionHash.slice(2), 'hex');
                 const blockHash = Buffer.from(record.blockHash.slice(2), 'hex');
-                const decumalAmount = this.fromBigInt(amount_in_units);
+                const decimalAmount = this.fromBigInt(amount_in_units);
 
                 console.log('[Deposit] New ERC20 transfer event for account %s, handling deposit of %s %s', userId.toString('hex'), decimalAmount, this.coin);
 

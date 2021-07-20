@@ -56,19 +56,24 @@ class Buterin {
                 // Init new Web3 instance for user-specific HD provider
                 const backend = new Web3(addrHDProvider);
 
+                // Get pending balance
+                const pending = await backend.eth.getBalance(address, "pending");
+
                 // Don't process unless we have more than minimal balance
-                const addressBalance = await backend.eth.getBalance(address, "pending");
-                if (BigInt(addressBalance) < this.minimum_amount)
+                if (BigInt(pending) < this.minimum_amount)
                     continue;
 
+                // Current transaction count (including unconfirmed)
+                const nonce = await backend.eth.getTransactionCount(address, "pending");
+
                 // Get gas price and calculate total gas value
-                const nonce = await backend.eth.getTransactionCount(address);
-                const estimatedGas = await backend.eth.estimateGas({ from: address, nonce: Web3.utils.toHex(nonce), to: this.root_provider.getAddress(), value: Web3.utils.toHex(addressBalance) });
+                const gas = 21000;
                 const gasPrice = await backend.eth.getGasPrice();
-                const gasValue = BigInt(estimatedGas) * BigInt(gasPrice);
+                const gasValue = BigInt(gas) * BigInt(gasPrice);
 
                 // Deduct estimated total gas price from amount
-                const depositAmount = BigInt(addressBalance) - gasValue;
+                //  Note that we're using pending balane here
+                const depositAmount = BigInt(pending) - gasValue;
 
                 // Transaction fields
                 const transactionObject = {
@@ -77,7 +82,7 @@ class Buterin {
                     to: this.root_provider.getAddress(),
                     value: Web3.utils.toHex(depositAmount.toString()),
                     gasPrice: '0x' + new Web3.utils.BN(gasPrice).toString('hex'),
-                    gas: '0x' + new Web3.utils.BN(estimatedGas).toString('hex')
+                    gas: '0x' + new Web3.utils.BN(gas).toString('hex')
                 };
 
                 // Sign transaction

@@ -4,7 +4,7 @@ const standardAbi = require('./src/erc20_abi');
 var Web3 = require('web3');
 const HDWalletProvider = require("@truffle/hdwallet-provider");
 
-async function listERC20Transactions(backend, contractAddress, tokenDecimals, address, fromBlock, confirmations) {
+async function listERC20Transactions(backend, contract, address, fromBlock, confirmations) {
 
     // Get current block height
     const currentBlockNumber = await backend.eth.getBlockNumber();
@@ -15,9 +15,6 @@ async function listERC20Transactions(backend, contractAddress, tokenDecimals, ad
 
     // Limit top block height by required confirmations
     const toBlock = currentBlockNumber - confirmations;
-
-    // Get contract instance
-    const contract = new backend.eth.Contract(standardAbi, contractAddress);
 
     // List contract events in [fromBlock, toBlock] interval
     const transferEvents = await contract.getPastEvents("Transfer", {
@@ -50,7 +47,7 @@ async function listERC20Transactions(backend, contractAddress, tokenDecimals, ad
                 blockHash: hash,
                 timestamp,
                 transactionHash,
-                amount: returnValues._value * Math.pow(10, -tokenDecimals)
+                amount: returnValues._value
             };
         }));
 }
@@ -118,16 +115,19 @@ class ERC20 {
             // Web3 backend
             const backend = new Web3(this.root_provider);
 
+            // ERC20 contract interface
+            const contract = new backend.eth.Contract(standardAbi, this.contract_address, {from: this.root_provider.getAddress()});
+
             // Request array of indexed transfer events
-            const incoming = await listERC20Transactions(backend, this.contract_address, this.decimals, this.root_provider.getAddress(), fromBlock, this.confirmations);
+            const incoming = await listERC20Transactions(backend, contract, this.root_provider.getAddress(), fromBlock, this.confirmations);
             if (0 == incoming.length)
                 return;
 
             // Iterate through new token transactions
             for (const record of incoming) {
 
-                const amount_in_units = this.toBigInt(record.amount);
-                const decimalAmount = this.fromBigInt(amount_in_units);
+                const amount_in_units = BigInt(record.amount);
+                const decimalAmount = this.fromBigInt(record.amount);
 
                 // Ignore spam deposits
                 if (amount_in_units < this.minimum_amount || !awaitingDeposits.has(amount_in_units))

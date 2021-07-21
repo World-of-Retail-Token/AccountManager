@@ -77,11 +77,14 @@ class Buterin {
                 // Init new Web3 instance for user-specific HD provider
                 const backend = new Web3(addrHDProvider);
 
-                // Get pending and confirmed balance
-                const [pending, confirmed] = await Promise.all([backend.eth.getBalance(address, "pending"), backend.eth.getBalance(address, "latest")]);
+                // Get current top block
+                const currentBlock = await backend.eth.getBlockNumber();
+
+                // Get pending, latest and confirmed balance
+                const [pending, latest, confirmed] = await Promise.all([backend.eth.getBalance(address, "pending"), backend.eth.getBalance(address, "latest"), backend.eth.getBalance(address, currentBlock - this.confirmations)]);
 
                 // Don't process unless there are no unconfirmed transactions
-                if (pending != confirmed)
+                if (pending != confirmed || pending != latest)
                     continue;
 
                 // Don't process unless we have more than minimal balance

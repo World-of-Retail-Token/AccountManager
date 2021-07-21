@@ -4,16 +4,25 @@ const standardAbi = require('./src/erc20_abi');
 var Web3 = require('web3');
 const HDWalletProvider = require("@truffle/hdwallet-provider");
 
-async function listERC20Transactions(backend, contractAddress, tokenDecimals, address, fromBlock) {
+async function listERC20Transactions(backend, contractAddress, tokenDecimals, address, fromBlock, confirmations) {
 
+    // Get current block height
     const currentBlockNumber = await backend.eth.getBlockNumber();
-    // if no block to start looking from is provided, look at tx from the last day
+
+    // If no block to start looking from is provided, look at tx from the last day
     // 86400s in a day / eth block time 10s ~ 8640 blocks a day
     if (!fromBlock) fromBlock = currentBlockNumber - 8640;
 
+    // Limit top block height by required confirmations
+    const toBlock = currentBlockNumber - confirmations;
+
+    // Get contract instance
     const contract = new backend.eth.Contract(standardAbi, contractAddress);
+
+    // List contract events in [fromBlock, toBlock] interval
     const transferEvents = await contract.getPastEvents("Transfer", {
         fromBlock,
+        toBlock,
         filter: {
             isError: 0,
             txreceipt_status: 1
@@ -25,10 +34,11 @@ async function listERC20Transactions(backend, contractAddress, tokenDecimals, ad
         ]
     });
 
+    // Block requests are kept as a map of promises
     let blockRequests = new Map();
     for (const event of transferEvents) {
-        const request = backend.eth.getBlock(event.blockNumber);
-        blockRequests.set(event.blockNumber, request);
+        // Promises are to be resolved and await'ed later
+        blockRequests.set(event.blockNumber, backend.eth.getBlock(event.blockNumber));
     }
 
     return Promise.all(transferEvents
@@ -103,27 +113,36 @@ class ERC20 {
                 return;
 
             // Block after last scanned block height
-            const fromBlock = this.db.getTopBlock() + 1;
+            const fromBlock = this.db.getTopBlock();
 
             // Web3 backend
             const backend = new Web3(this.root_provider);
 
-            const incoming = await listERC20Transactions(backend, this.contract_address, this.decimals, this.root_provider.getAddress(), fromBlock);
+            // Request array of indexed transfer events
+            const incoming = await listERC20Transactions(backend, this.contract_address, this.decimals, this.root_provider.getAddress(), fromBlock, this.confirmations);
             if (0 == incoming.length)
                 return;
 
             // Iterate through new token transactions
             for (const record of incoming) {
-                // Ignore spam deposits
+
                 const amount_in_units = this.toBigInt(record.amount);
+                const decimalAmount = this.fromBigInt(amount_in_units);
+
+                // Ignore spam deposits
                 if (amount_in_units < this.minimum_amount || !awaitingDeposits.has(amount_in_units))
+                    continue;
+
+                // Convert hashes to buffers
+                const blockHash = Buffer.from(record.blockHash.slice(2), 'hex');
+                const txHash = Buffer.from(record.transactionHash.slice(2), 'hex');
+
+                // Ignore processed transactions
+                if (this.db.checkTransactionExists(txHash))
                     continue;
 
                 // Amount is a key for user identifier
                 const userId = awaitingDeposits.get(amount_in_units);
-                const txHash = Buffer.from(record.transactionHash.slice(2), 'hex');
-                const blockHash = Buffer.from(record.blockHash.slice(2), 'hex');
-                const decimalAmount = this.fromBigInt(amount_in_units);
 
                 console.log('[Deposit] New ERC20 transfer event for account %s, handling deposit of %s %s', userId.toString('hex'), decimalAmount, this.coin);
 

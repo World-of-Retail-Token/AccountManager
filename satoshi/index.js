@@ -1,5 +1,8 @@
 'use strict';
 
+import SatoshiDatabase from './src/database.js';
+import Client from 'bitcoin-core';
+
 class Satoshi {
     // Database wrapper class
     db;
@@ -292,12 +295,9 @@ class Satoshi {
     }
 
     constructor(config) {
-        // We only need these references once
-        const Database = require('./src/database');
-        const Client = require('bitcoin-core');
 
         // Init frontend database
-        this.db = new Database(config);
+        this.db = new SatoshiDatabase(config);
         // Init backend RPC accessor class
         this.backend = new Client(config.backend_options);
         // Receive addresses label
@@ -438,4 +438,4 @@ class Satoshi {
     }
 }
 
-module.exports = Satoshi;
+export default Satoshi;

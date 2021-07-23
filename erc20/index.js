@@ -1,8 +1,10 @@
 'use strict';
 
-const standardAbi = require('./src/erc20_abi');
-var Web3 = require('web3');
-const HDWalletProvider = require("@truffle/hdwallet-provider");
+import standardAbi from './src/erc20_abi.js';
+import ERC20Database from './src/database.js';
+import bip39 from 'bip39';
+import Web3 from 'web3';
+import HDWalletProvider from "@truffle/hdwallet-provider";
 
 async function listERC20Transactions(backend, contract, address, fromBlock, confirmations) {
 
@@ -339,17 +341,14 @@ class ERC20 {
             throw new Error('web3_url is not a valid wss:// URL');
 
         // To function properly we also need a valid bip39 mnemonic
-        if (!require('bip39').validateMnemonic(config.mnemonic))
+        if (!bip39.validateMnemonic(config.mnemonic))
             throw new Error('mnemonic field is not a valid bip39 mnemonic');
 
         if (!Web3.utils.isAddress(config.contract_address))
             throw new Error('contract_address field must provide correct address');
 
-        // We only need these references once
-        const Database = require('./src/database');;
-
         // Init frontend database
-        this.db = new Database(config);
+        this.db = new ERC20Database(config);
 
         // Web3 provider
         const provider = new Web3.providers.WebsocketProvider(config.web3_url);
@@ -521,4 +520,4 @@ class ERC20 {
     }
 }
 
-module.exports = ERC20;
+export default ERC20;

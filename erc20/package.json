@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Accounting proxy for erc20 tokens",
   "main": "index.js",
+  "type": "module",
   "dependencies": {
     "@truffle/hdwallet-provider": "^1.4.1",
     "better-sqlite3": "^7.4.1",

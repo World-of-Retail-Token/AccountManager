@@ -3,7 +3,7 @@
 // This ABI can be used to interact with any Standard ERC-20
 //   or Human Standard Token on the Ethereum Blockchain
 
-module.exports = [
+const standardAbi = [
     {
         "constant": true,
         "inputs": [],
@@ -272,3 +272,5 @@ module.exports = [
         "type": "function"
     }
 ];
+
+export default standardAbi;

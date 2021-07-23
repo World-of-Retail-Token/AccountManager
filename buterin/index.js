@@ -1,7 +1,9 @@
 'use strict';
 
-const Web3 = require('web3');
-const HDWalletProvider = require("@truffle/hdwallet-provider");
+import Web3 from 'web3';
+import bip39 from 'bip39';
+import HDWalletProvider from "@truffle/hdwallet-provider";
+import ButerinDatabase from './src/database.js';
 
 class Buterin {
     // Database wrapper class
@@ -358,14 +360,11 @@ class Buterin {
             throw new Error('web3_url field is not a valid wss:// URL');
 
         // To function properly we also need a valid bip39 mnemonic
-        if (!require('bip39').validateMnemonic(config.mnemonic))
+        if (!bip39.validateMnemonic(config.mnemonic))
             throw new Error('mnemonic field is not a valid bip39 mnemonic');
 
-        // We only need these references once
-        const Database = require('./src/database');;
-
         // Init frontend database
-        this.db = new Database(config);
+        this.db = new ButerinDatabase(config);
 
         // Init backend connection provider
         this.provider = new Web3.providers.WebsocketProvider(config.web3_url);
@@ -514,4 +513,4 @@ class Buterin {
     }
 }
 
-module.exports = Buterin;
+export default Buterin;

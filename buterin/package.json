@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Accounting proxy for ethereum-like (i.e. Ethereum-derived) cryptocurrency daemons",
   "main": "index.js",
+  "type": "module",
   "dependencies": {
     "@truffle/hdwallet-provider": "^1.4.1",
     "better-sqlite3": "^7.4.1",

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Accounting server for various cryptocoins",
   "main": "index.js",
+  "type": "module",
   "dependencies": {
     "better-sqlite3": "^7.4.1",
     "json-rpc-2.0": "^0.2.16",

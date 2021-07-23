@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Accounting proxy for bitcoin-like (i.e. Satoshi-derived) cryptocurrency daemons",
   "main": "index.js",
+  "type": "module",
   "dependencies": {
     "better-sqlite3": "^7.4.1",
     "bitcoin-core": "^3.0.0"

@@ -1,23 +1,33 @@
 'use strict';
 
-// Require backends
-const proxy_classes = {
-    ERC20: require('./erc20'),
-    Satoshi: require('./satoshi'),
-    Buterin: require('./buterin')
-};
+import ERC20 from './erc20/index.js';
+import Satoshi from './satoshi/index.js';
+import Buterin from './buterin/index.js';
 
-// Frontend is serving JSON-RPC requests over HTTP protocol
-const http = require('http');
-const { JSONRPCServer } = require("json-rpc-2.0");
-const { rpcport, rpchost, coins, database_path, database_options } = require('./config');
+// Require backends
+const proxy_classes = { ERC20, Satoshi, Buterin };
+
+import fs from 'fs';
+import http from 'http';
+import path from 'path';
+import Database from 'better-sqlite3';
+import { JSONRPCServer } from 'json-rpc-2.0';
+import ShutdownHandler from 'shutdown-handler';
+import { rpcport, rpchost, coins, database_path, database_options } from './config.js';
+
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+// Recreate missing reference to __filename and __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // We only need fs and path modules once so
 //  there is no need to keep them globally
-const schema = require('fs').readFileSync(require('path').join(__dirname, 'src', 'schema.sql'), 'utf-8');
+const schema = fs.readFileSync(path.join(__dirname, 'src', 'schema.sql'), 'utf-8');
 
 // better-sqlite3 instance
-const db = require('better-sqlite3')(database_path, database_options || {});
+const db = Database(database_path, database_options || {});
 
 // Init schema
 db.exec(schema);
@@ -179,6 +189,7 @@ server.addMethod('setPending', ({coin, user, address, amount}) => getBackend(coi
 
 // TODO: More methods
 
+// Frontend is serving JSON-RPC requests over HTTP protocol
 const app = http.createServer(function (request, response) {
     if (request.method == 'POST') {
         var body = '';
@@ -220,7 +231,7 @@ const app = http.createServer(function (request, response) {
 
 app.listen(rpcport, rpchost);
 
-require('shutdown-handler').on('exit', async (e) => {
+ShutdownHandler.on('exit', async (e) => {
     e.preventDefault();
 
     app.close(async () => {

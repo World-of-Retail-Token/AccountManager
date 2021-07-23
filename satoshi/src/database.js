@@ -1,6 +1,18 @@
 'use strict';
 
-class Database {
+import fs from 'fs';
+import path from 'path';
+
+import Database from 'better-sqlite3';
+
+// Recreate missing reference to __filename and __dirname
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+class SatoshiDatabase {
     // Database handler
     db;
 
@@ -28,10 +40,10 @@ class Database {
         // 1. We only need fs and path modules once so
         //  there is no need to keep them globally
         // 2. Schema needs to be adjusted for current coin prefix
-        const schema = require('fs').readFileSync(require('path').join(__dirname, 'schema.sql'), 'utf-8').replaceAll('prefix', config.coin);
+        const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8').replaceAll('prefix', config.coin);
 
         // better-sqlite3 instance
-        this.db = require('better-sqlite3')(config.database_path, config.database_options || {});
+        this.db = Database(config.database_path, config.database_options || {});
 
         // Init schema
         this.db.exec(schema);
@@ -159,4 +171,4 @@ class Database {
 }
 
 // Export class
-module.exports = Database;
+export default SatoshiDatabase;

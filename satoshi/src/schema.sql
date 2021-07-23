@@ -24,6 +24,11 @@ CREATE TABLE IF NOT EXISTS prefix_transactions(
     blockTime INTEGER NOT NULL
 );
 
+-- Processing offset
+CREATE TABLE IF NOT EXISTS prefix_processed_blocks(
+    blockHash BLOB PRIMARY KEY,
+    blockHeight INTEGER NOT NULL
+);
 
 -- Index by hash and userId
 CREATE INDEX IF NOT EXISTS prefix_transactions_uid_txhash_index ON prefix_transactions(userId, txHash);

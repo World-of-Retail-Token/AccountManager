@@ -57,16 +57,26 @@ class Satoshi {
         try {
             const count = 10;
             let skip = 0;
+            let working = true;
 
-            while (true) {
+            // Transactions to apply
+            let changes = [];
+
+            while (working) {
+
                 // Select (next) batch of records
                 const transactions = await this.backend.listTransactions({count: count, label: this.label, skip: skip, include_watchonly: false});
                 if (transactions.length == 0)
                     break;
                 skip += count;
 
-                // Process each record
-                for (const record of transactions) {
+                // Each record is processed individually
+                for (const record of transactions.reverse()) {
+
+                    // Process regular incoming transactions only
+                    if (record.category != "receive")
+                        continue;
+
                     // Convert amount to minimal units
                     const amount_in_satoshi = this.toBigInt(record.amount);
                     const decimalAmount = this.fromBigInt(amount_in_satoshi);
@@ -74,6 +84,7 @@ class Satoshi {
                     // Apply confirmation and value limits
                     if (amount_in_satoshi < this.minimum_amount || record.confirmations < this.confirmations)
                         continue;
+
                     // If address is unknown then ignore it
                     const userId = this.db.getUserId(record.address);
                     if (!userId)
@@ -83,16 +94,21 @@ class Satoshi {
                     const txHash = Buffer.from(record.txid, 'hex');
                     const blockHash = Buffer.from(record.blockhash, 'hex');
 
-                    // Check whether transaction is already associated with this user
-                    if (this.db.checkTransactionExists(userId, txHash)) {
-                        // Break both loops once we reached this point
-                        return;
+                    // Break both loops if we reached processed block hash
+                    if (this.db.checkBlockProcessed(blockHash)) {
+                        working = false;
+                        break;
                     }
 
-                    console.log('[Deposit] Address %s received new confirmed input of amount %s %s which is greater than threshold, adding to database ...', record.address, record.amount, this.coin);
+                    // Check whether transaction is already associated with this user
+                    if (this.db.checkTransactionExists(userId, txHash))
+                        continue;
 
-                    // Apply database changes
-                    const result = this.db.makeTransaction(() => {
+                    // Create and keep new update tx
+                    const tx = this.db.makeTransaction(() => {
+
+                        // We have new confirmed yet unprocessed UTXO
+                        console.log('[Deposit] Address %s received new confirmed input of amount %s %s which is greater than threshold, adding to database ...', record.address, record.amount, this.coin);
 
                         // Update account transfer amounts
                         {
@@ -106,8 +122,14 @@ class Satoshi {
                             this.db.setGlobalStats((BigInt(deposit) + amount_in_satoshi).toString(), withdrawal);
                         }
 
-                        // insert transaction record
+                        // Insert transaction record
                         this.db.insertTransaction(userId, decimalAmount, txHash, record.vout, blockHash, record.blockheight, record.blocktime);
+
+                        // Add processed block hash if necessary
+                        if (!this.db.checkBlockProcessed(blockHash)) {
+                            console.log('[Deposit] Adding last processed block %s at height %d', record.blockhash, record.blockheight);
+                            this.db.insertProcessed(blockHash, record.blockheight);
+                        }
 
                         // Will be handled by caller
                         processed.push({
@@ -122,8 +144,20 @@ class Satoshi {
                         });
 
                         console.log('[Deposit] Processed deposit transaction %s (%f %s) for account %s', record.txid, decimalAmount, this.coin, userId.toString('hex'));
-                    })();
+
+                    });
+
+                    // Will be executed later
+                    changes.push(tx);
                 }
+            }
+
+            // Apply database changes
+            if (changes.length !== 0) {
+                console.log('[Deposit] Accumulated %d sets of changes to be applied', changes.length);
+                this.db.makeTransaction(() => {
+                    for (const tx of changes) tx();
+                })();
             }
 
         } catch(e) {
@@ -266,29 +300,17 @@ class Satoshi {
         this.db = new Database(config);
         // Init backend RPC accessor class
         this.backend = new Client(config.backend_options);
-
         // Receive addresses label
         this.label = config.label || 'incoming';
-
         // Remember denomination
         this.decimals = config.decimals || 8;
-
         // Remember limits
         this.minimum_amount = this.toBigInt(config.minimum_amount || 0.0001);
         this.confirmations = Number(config.confirmations || 6);
-
         // Remember coin name
         this.coin = config.coin;
-
         // Remember passphrase
         this.unlock_password = config.unlock_password;
-
-        // Polling task
-        this.backend_polling = setInterval(async () => {
-        }, 60000);
-        // Pending processing task
-        this.pending_processing = setInterval(async () => {
-        }, 60000);
     }
 
     getDistinction() {

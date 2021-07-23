@@ -12,6 +12,7 @@ class Database {
     select_pending;
     select_account_stats;
     select_global_stats;
+    select_last_processed;
 
     // Prepared statements for modification
     insert_address;
@@ -21,6 +22,7 @@ class Database {
     delete_pending;
     set_account_stats;
     set_global_stats;
+    set_last_processed;
 
     constructor(config) {
         // 1. We only need fs and path modules once so
@@ -47,6 +49,7 @@ class Database {
         this.select_account_pending = this.db.prepare('SELECT * FROM ' + config.coin + '_pending WHERE userId = ?');
         this.select_account_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_account_stats WHERE userId = ?');
         this.select_global_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_global_stats');
+        this.processed_block_exists = this.db.prepare('SELECT EXISTS (SELECT blockHeight FROM ' + config.coin + '_processed_blocks WHERE blockHash = ?) as found');
 
         // Modification
         this.insert_address = this.db.prepare('INSERT INTO ' + config.coin + '_addresses (userId, address) VALUES(?, ?)');
@@ -58,6 +61,7 @@ class Database {
         this.update_account_stats = this.db.prepare('UPDATE ' + config.coin + '_account_stats SET deposit = ?, withdrawal = ? WHERE userId = ?');
         this.insert_account_stats = this.db.prepare('INSERT INTO ' + config.coin + '_account_stats (userId, deposit, withdrawal) VALUES (?, ?, ?)');
         this.set_global_stats = this.db.prepare('UPDATE ' + config.coin + '_global_stats SET deposit = @deposit, withdrawal = @withdrawal');
+        this.insert_processed_block = this.db.prepare('INSERT INTO ' + config.coin + '_processed_blocks (blockHash, blockHeight) VALUES (?, ?)');
     }
 
     getAddress(userId) {
@@ -106,6 +110,10 @@ class Database {
         return this.select_global_stats.get();
     }
 
+    checkBlockProcessed(blockHash) {
+        return !!this.processed_block_exists.get(blockHash).found;
+    }
+
     insertAddress(userId, address) {
         return this.insert_address.run(userId, address);
     }
@@ -139,6 +147,10 @@ class Database {
 
     setGlobalStats(deposit, withdrawal) {
         return this.set_global_stats.run({ deposit : deposit, withdrawal : withdrawal });
+    }
+
+    insertProcessed(blockHash, blockHeight) {
+        return this.insert_processed_block.run(blockHash, blockHeight);
     }
 
     makeTransaction(executor) {

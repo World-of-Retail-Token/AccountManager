@@ -6,6 +6,7 @@ class Database {
 
     // Prepared statements for selection
     select_tag;
+    select_userid;
     select_transaction;
     select_transactions;
     select_pending;
@@ -37,7 +38,7 @@ class Database {
         //
         // Selection
         this.select_tag = this.db.prepare('SELECT tag FROM ' + config.coin + '_tags WHERE userId = ?');
-        this.select_user_id = this.db.prepare('SELECT userId FROM ' + config.coin + '_tags WHERE tag = ?');
+        this.select_userid = this.db.prepare('SELECT userId FROM ' + config.coin + '_tags WHERE tag = ?');
         this.transaction_exists = this.db.prepare('SELECT EXISTS (SELECT entryId FROM ' + config.coin + '_transactions WHERE userId = ? AND txHash = ?) as found');
         this.select_transactions = this.db.prepare('SELECT * FROM ' + config.coin + '_transactions WHERE userId = @userId ORDER BY entryId DESC LIMIT 10 OFFSET @offset');
         this.select_withdrawal_transactions = this.db.prepare('SELECT * FROM ' + config.coin + '_withdrawal_transactions WHERE userId = @userId ORDER BY entryId DESC LIMIT 10 OFFSET @offset');
@@ -67,7 +68,7 @@ class Database {
     }
 
     getUserId(tag) {
-        const record = this.select_user_id.get(tag);
+        const record = this.select_userid.get(tag);
         if (!record) return undefined;
         return record.userId;
     }
@@ -107,7 +108,7 @@ class Database {
     }
 
     insertUserId(userId) {
-        this.insert_address.run(userId, address);
+        this.insert_userid.run(userId);
         return this.select_tag.get(userId);
     }
 

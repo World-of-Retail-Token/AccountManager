@@ -1,6 +1,9 @@
 'use strict';
 
-const got = require('got');
+//const got = require('got');
+
+import got from 'got';
+import RippleDatabase from './src/database.js';
 
 class Ripple {
     // Database wrapper class
@@ -86,6 +89,158 @@ class Ripple {
         console.log('[Deposit] Checking for new %s deposits', this.coin);
 
         try {
+            const limit = 10;
+            let working = true;
+
+            // Default marker is undefined
+            let marker;
+
+            // Transactions to apply
+            let changes = [];
+
+            // Request data pages from the backend until we either
+            //  reach the end of data set or get already processed entry
+            while (working) {
+
+                // Queue request and wait for promise to resolve
+                const {error_message, result, status, type} = await got.post(endpointURI, {
+                    json: {
+                        "method": "account_tx",
+                        "params": [
+                            {
+                                "account": address,
+                                "binary": false,
+                                "forward": false,
+                                "ledger_index_max": -1,
+                                "ledger_index_min": -1,
+                                limit,
+                                marker
+                            }
+                        ]
+                    }
+                }).json();
+
+                // Ensure that we got a correct reply
+                if (error_message || !result || type !== "reply" || status !== "success") {
+                    console.log('Unexpected response received from RPC server');
+                    if (error_message) console.log(error_message);
+                    break;
+                }
+
+                // Stop if no transactions found
+                if (!Array.isArray(result.transactions) || result.transactions.length == 0)
+                    break;
+
+                // Used for next iteration
+                marker = result.marker;
+
+                // Absence of marker means that
+                //   we've reached a last page
+                working = !!result.marker;
+
+                // Descending sort
+                result.transactions.sort((tx1, tx2) => tx2.tx.ledger_index - tx1.tx.ledger_index);
+
+                for (const {meta, tx, validated} of result.transactions) {
+                    // 1. Ignore non-validated and unsuccessful transactions
+                    // 2. Filter out transactions which have no affected nodes
+                    // 3. Ignore outgoing transactions
+                    // 4. Filter out transactions without destination tag
+                    if (!validated || meta.AffectedNodes.length == 0 || meta.TransactionResult != 'tesSUCCESS' || tx.Destination !== this.root_account || tx.DestinationTag === undefined) continue;
+
+                    const lastMetaNode = meta.AffectedNodes[meta.AffectedNodes.length - 1];
+                    const lastNodeDiff = (lastMetaNode.CreatedNode || lastMetaNode.ModifiedNode);
+                    if (lastNodeDiff.LedgerEntryType != 'AccountRoot') continue;
+
+                    // Convert amount to minimal units
+                    const amount_in_drops = BigInt(tx.Amount);
+                    const decimalAmount = this.fromBigInt(amount_in_drops);
+
+                    // Apply value limit
+                    if (amount_in_drops < this.minimum_amount)
+                        continue;
+
+                    // If destination tag is unknown then ignore this transaction
+                    const userId = this.db.getUserId(tx.DestinationTag);
+                    if (!userId)
+                        continue;
+
+                    // Convert hashes to buffers
+                    const txHashHex = tx.ledger_index;
+                    const txHash = Buffer.from(txHashHex, 'hex');
+                    const blockHashHex = lastNodeDiff.LedgerIndex;
+                    const blockHash = Buffer.from(blockHashHex, 'hex');
+
+                    // Block height
+                    const blockHeight = tx.ledger_index;
+
+                    // Convert timestamp
+                    const blockTime = 946684800 + tx.date;
+
+                    // Break both loops if we reached processed block hash
+                    if (this.db.checkBlockProcessed(blockHash)) {
+                        working = false;
+                        break;
+                    }
+
+                    // Check whether transaction is already associated with this user
+                    if (this.db.checkTransactionExists(userId, txHash))
+                        continue;
+
+                    // Create and keep new update tx
+                    const tx = this.db.makeTransaction(() => {
+
+                        // We have new confirmed yet unprocessed UTXO
+                        console.log('[Deposit] Address %s received new confirmed input of amount %s %s which is greater than threshold, adding to database ...', tx.Account, decimalAmount, this.coin);
+
+                        // Update account transfer amounts
+                        {
+                            let {deposit, withdrawal} = this.db.getAccountStats(userId);
+                            this.db.setAccountStats(userId, (BigInt(deposit) + amount_in_drops).toString(), withdrawal);
+                        }
+
+                        // Update global transfer amounts
+                        {
+                            let {deposit, withdrawal} = this.db.getGlobalStats();
+                            this.db.setGlobalStats((BigInt(deposit) + amount_in_drops).toString(), withdrawal);
+                        }
+
+                        // Insert transaction record
+                        this.db.insertTransaction(userId, decimalAmount, txHash, blockHash, blockHeight, blockTime);
+
+                        // Add processed block hash if necessary
+                        if (!this.db.checkBlockProcessed(blockHash)) {
+                            console.log('[Deposit] Adding last processed block %s at height %d', blockHashHex, blockHeight);
+                            this.db.insertProcessed(blockHash, blockHeight);
+                        }
+
+                        // Will be handled by caller
+                        processed.push({
+                            amount: decimalAmount,
+                            coin: this.coin,
+                            blockHash: blockHashHex,
+                            blockHeight: blockHeight,
+                            blockTime: blockTime,
+                            txHash: txHashHex,
+                            userId: userId.toString('hex')
+                        });
+
+                        console.log('[Deposit] Processed deposit transaction %s (%f %s) for account %s', txHashHex, decimalAmount, this.coin, userId.toString('hex'));
+
+                    });
+
+                    // Will be executed later
+                    changes.push(tx);
+                }
+            }
+
+            // Apply database changes
+            if (changes.length !== 0) {
+                console.log('[Deposit] Accumulated %d sets of changes to be applied', changes.length);
+                this.db.makeTransaction(() => {
+                    for (const tx of changes) tx();
+                })();
+            }
 
         } catch(e) {
             // Fatal error, administrator's involvement is required
@@ -127,9 +282,6 @@ class Ripple {
     }
 
     constructor(config) {
-        // We only need these references once
-        const Database = require('./src/database');
-
         // Init frontend database
         this.db = new Database(config);
         // Init backend RPC accessor class
@@ -279,4 +431,4 @@ class Ripple {
     }
 }
 
-module.exports = Ripple;
+export default Ripple;

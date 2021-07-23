@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Accounting proxy for XRP-like (i.e. Ripple-derived) cryptocurrency daemons",
   "main": "index.js",
+  "type": "module",
   "dependencies": {
     "better-sqlite3": "^7.4.3",
     "got": "^12.0.0-beta.1"

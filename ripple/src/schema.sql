@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS prefix_withdrawal_transactions(
     timestamp INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS prefix_processed_block(
+CREATE TABLE IF NOT EXISTS prefix_processed_blocks(
     blockHash BLOB PRIMARY KEY,
     blockHeight INTEGER NOT NULL
 );

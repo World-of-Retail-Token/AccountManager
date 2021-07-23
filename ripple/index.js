@@ -274,6 +274,70 @@ class Ripple {
             if (0 == pending.length) return;
 
             console.log('[Withdrawal] Found %d queued withdrawal requests for %s', pending.length, this.coin);
+
+            for (const {userId, address, tag, amount} of pending) {
+                let DestinationTag;
+                if (tag !== -1) DestinationTag = tag;
+                const decimalAmount = this.fromBigInt(amount);
+
+                console.log('[Withdrawal] Sending %s %s to %s %s from account %s', decimalAmount, this.coin, address, DestinationTag ? ':' + DestinationTag : '', userId.toString('hex'));
+
+                const {result} = await got.post(endpointURI, {
+                    json: {
+                        "method": "submit",
+                        "params": [
+                            {
+                                "offline": false,
+                                "passphrase": entryKey,
+                                "key_type": "secp256k1",
+                                "tx_json": {
+                                    "Account": address,
+                                    "Amount": amount,
+                                    "Destination": rootAccount,
+                                    DestinationTag,
+                                    "TransactionType": "Payment"
+                                }
+                            }
+                        ]
+                    }
+                }).json();
+
+                if (result.status !== 'success') {
+                    // Transaction failed
+                    console.log('[Withdrawal] Backend returned RPC error on submission');
+                    this.error = new Error(error_message);
+                    break;
+                }
+
+                // Transaction hash
+                const txHashHex = result.tx_json.hash;
+                const txHash = Buffer.from(txHashHex, 'hex');
+
+                // Wait before saving
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                this.db.makeTransaction(() => {
+                    // Update account transfer amounts
+                    {
+                        let {deposit, withdrawal} = this.db.getAccountStats(userId);
+                        this.db.setAccountStats(userId, deposit, (BigInt(withdrawal) + BigInt(amount)).toString());
+                    }
+                    // Update global transfer amounts
+                    {
+                        let {deposit, withdrawal} = this.db.getGlobalStats();
+                        this.db.setGlobalStats(deposit, (BigInt(withdrawal) + BigInt(amount)).toString());
+                    }
+
+                    // Delete pending record for current user
+                    this.db.deletePending(userId);
+
+                    // Insert withdrawal transaction record
+                    const txHash = Buffer.from(txid, 'hex');
+                    this.db.insertWithdrawalTransaction(userId, amount, txHash, address, Math.floor(Date.now() / 1000));
+                })()
+
+                console.log('[Withdrawal] Processed withdrawal transaction %s %s (%s %s) for account %s', txHashHex, address, decimalAmount, this.coin, userId.toString('hex'));
+            }
         }
         catch(e) {
             // Fatal error, administrator's involvement is required

@@ -3,9 +3,10 @@
 import ERC20 from './erc20/index.js';
 import Satoshi from './satoshi/index.js';
 import Buterin from './buterin/index.js';
+import Ripple from './ripple/index.js';
 
 // Require backends
-const proxy_classes = { ERC20, Satoshi, Buterin };
+const proxy_classes = { ERC20, Satoshi, Buterin, Ripple };
 
 import fs from 'fs';
 import http from 'http';

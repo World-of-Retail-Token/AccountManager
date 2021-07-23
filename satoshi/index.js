@@ -52,12 +52,13 @@ class Satoshi {
             return this.error;
         }
 
+        console.log('[Deposit] Checking for new %s deposits', this.coin);
+
         try {
             const count = 10;
             let skip = 0;
-            let working = true;
 
-            while (working) {
+            while (true) {
                 // Select (next) batch of records
                 const transactions = await this.backend.listTransactions({count: count, label: this.label, skip: skip, include_watchonly: false});
                 if (transactions.length == 0)
@@ -85,9 +86,10 @@ class Satoshi {
                     // Check whether transaction is already associated with this user
                     if (this.db.checkTransactionExists(userId, txHash)) {
                         // Break both loops once we reached this point
-                        working = false;
-                        break;
+                        return;
                     }
+
+                    console.log('[Deposit] Address %s received new confirmed input of amount %s %s which is greater than threshold, adding to database ...', record.address, record.amount, this.coin);
 
                     // Apply database changes
                     const result = this.db.makeTransaction(() => {
@@ -119,14 +121,14 @@ class Satoshi {
                             vout: record.vout
                         });
 
-                        console.log('Processed deposit transaction %s (%f %s) for account %s', record.txid, decimalAmount, this.coin, userId.toString('hex'));
+                        console.log('[Deposit] Processed deposit transaction %s (%f %s) for account %s', record.txid, decimalAmount, this.coin, userId.toString('hex'));
                     })();
                 }
             }
 
         } catch(e) {
             // Fatal error, administrator's involvement is required
-            console.log('Fatal error while processing listtrandactions output');
+            console.log('Fatal error while processing listtransactions output');
             console.log(e);
 
             this.error = e;
@@ -142,9 +144,13 @@ class Satoshi {
             return this.error;
         }
 
+        console.log('[Withdrawal] Checking for new %s withdrawals', this.coin);
+
         try {
             const pending = this.db.getPending();
             if (0 == pending.length) return;
+
+            console.log('[Withdrawal] Found %d queued withdrawal requests for %s', pending.length, this.coin);
 
             if (this.unlock_password) {
                 // unlock wallet
@@ -152,14 +158,63 @@ class Satoshi {
             }
 
             for (const {userId, amount, address} of pending) {
+
+                // Convert from satoshis to decimal amount
                 const decimalAmount = this.fromBigInt(amount);
 
-                // Enqueue and wait for transaction id
-                const txid = await this.backend.sendToAddress({
-                    address : address,
-                    amount: Number(decimalAmount),
-                    comment: userId.toString('hex')
-                });
+                // There are two possible failures may happen:
+                //   1. Failure while checking the destination address
+                //   2. Error while submitting payment via backend RPC
+
+                let txid;
+                let err;
+
+                try {
+                    // Check address
+                    const {isvalid} = (await this.backend.validateAddress(address));
+
+                    // If address is valid then enqueue
+                    //    and wait for transaction id
+                    if (isvalid) {
+                        txid = await this.backend.sendToAddress({ address : address, amount: Number(decimalAmount), comment: userId.toString('hex') });
+                    }
+
+                } catch (e) {
+                    err = e;
+                }
+
+                // Transaction id must be available at this point
+                //  If it's not, then something is wrong here
+                if (!txid) {
+
+                    // Report backend error if there is any
+                    if (err) {
+                        console.log('[Withdrawal] Backend returned RPC error');
+                        console.log(e);
+                        // Backend errors are considered fatal
+                        // This means that no futher attempts of processing until this situation is resolved manually
+                        this.error = e;
+                        return e;
+                    }
+
+                    // There must be an error happened while validating destination address
+                    console.log('[Withdrawal] Backend does not accept %s as a valid %s address', address, this.coin);
+
+                    // Delete request record from processing queue
+                    this.db.deletePending(pending.userId);
+
+                    // Rejects must be handled manually
+                    rejected.push({
+                        amount: decimalAmount,
+                        address: pending.address,
+                        coin: this.coin,
+                        userId: pending.userId.toString('hex')
+                    });
+
+                    // Skip and try to process the
+                    //   next pending withdrawal
+                    continue;
+                }
 
                 this.db.makeTransaction(() => {
                     // Update account transfer amounts
@@ -189,7 +244,7 @@ class Satoshi {
                     userId: userId.toString('hex')
                 });
 
-                console.log('Processed withdrawal transaction %s %s (%s %s) for account %s', txid, address, decimalAmount, this.coin, userId.toString('hex'));
+                console.log('[Withdrawal] Processed withdrawal transaction %s %s (%s %s) for account %s', txid, address, decimalAmount, this.coin, userId.toString('hex'));
             }
         }
         catch(e) {

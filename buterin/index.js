@@ -206,7 +206,7 @@ class Buterin {
             const pending_records = this.db.getPending();
             if (0 == pending_records.length) return;
 
-            console.log('[Withdrawal] Found %d queued withdrawal requests', pending_records.length);
+            console.log('[Withdrawal] Found %d queued withdrawal requests for %s', pending_records.length, this.coin);
 
             // Init new Web3 instance for root HD provider
             const backend = new Web3(this.root_provider);

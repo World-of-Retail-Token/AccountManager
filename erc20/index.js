@@ -213,7 +213,7 @@ class ERC20 {
             const pending_records = this.db.getPending();
             if (0 == pending_records.length) return;
 
-            console.log('[Withdrawal] Found %d queued withdrawal requests', pending_records.length);
+            console.log('[Withdrawal] Found %d queued withdrawal requests for %s', pending_records.length, this.coin);
 
             for (const pending of pending_records) {
 

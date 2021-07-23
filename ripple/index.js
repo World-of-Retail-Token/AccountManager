@@ -37,7 +37,7 @@ class Ripple {
         // Get basic root account info
         const accountData = await got.post(this.backend, {
             json: {
-                "method": "account_info",
+                "method": "wallet_propose",
                 "params": [
                     {
                         "passphrase": this.mnemonic,
@@ -283,7 +283,7 @@ class Ripple {
 
     constructor(config) {
         // Init frontend database
-        this.db = new Database(config);
+        this.db = new RippleDatabase(config);
         // Init backend RPC accessor class
         this.backend = config.backend_url;
         // Remember denomination

@@ -1,16 +1,13 @@
 BEGIN;
 
 -- Map of temporarity assigned deposit records
-CREATE TABLE IF NOT EXISTS prefix_user_tags(
+CREATE TABLE IF NOT EXISTS prefix_tags(
     userId BLOB NOT NULL,
-    tag INTEGER NOT NULL
+    tag INTEGER PRIMARY KEY ASC
 );
 
 -- Disallow ambiguous user -> tag associations
-CREATE UNIQUE INDEX IF NOT EXISTS prefix_user_tags_userId_uniqualizer ON prefix_user_tags(userId);
-
--- Disallow ambiguous tag -> user associations
-CREATE UNIQUE INDEX IF NOT EXISTS prefix_awaiting_deposits_amount_uniqualizer ON prefix_user_tags(tag);
+CREATE UNIQUE INDEX IF NOT EXISTS prefix_tags_userId_uniqualizer ON prefix_tags(userId);
 
 -- Transaction log
 CREATE TABLE IF NOT EXISTS prefix_transactions(

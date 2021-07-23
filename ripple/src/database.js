@@ -51,7 +51,7 @@ class Database {
         // Modification
         this.insert_userid = this.db.prepare('INSERT INTO ' + config.coin + '_tags (userId) VALUES(?)');
         this.delete_userid = this.db.prepare('DELETE FROM ' + config.coin + '_tags WHERE userId = ?');
-        this.insert_transaction = this.db.prepare('INSERT INTO ' + config.coin + '_transactions (userId, amount, txHash, vout, blockHash, blockHeight, blockTime) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        this.insert_transaction = this.db.prepare('INSERT INTO ' + config.coin + '_transactions (userId, amount, txHash, blockHash, blockHeight, blockTime) VALUES (?, ?, ?, ?, ?, ?)');
         this.insert_withdrawal_transaction = this.db.prepare('INSERT INTO ' + config.coin + '_withdrawal_transactions (userId, amount, txHash, address, timestamp) VALUES (?, ?, ?, ?, ?)');
         this.insert_pending = this.db.prepare('INSERT INTO ' + config.coin + '_pending (userId, address, amount) VALUES (?, ?, ?)');
         this.delete_pending = this.db.prepare('DELETE FROM ' + config.coin + '_pending WHERE userId = ?');
@@ -141,6 +141,10 @@ class Database {
 
     setGlobalStats(deposit, withdrawal) {
         return this.set_global_stats.run({ deposit : deposit, withdrawal : withdrawal });
+    }
+
+    insertProcessed(blockHash, blockHeight) {
+        return this.insert_processed_block.run(blockHash, blockHeight);
     }
 
     makeTransaction(executor) {

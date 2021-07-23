@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS prefix_withdrawal_transactions(
     timestamp INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS prefix_processed_block(
+    blockHash BLOB PRIMARY KEY,
+    blockHeight INTEGER NOT NULL
+);
+
 -- Disallow duplicate transaction log records
 CREATE UNIQUE INDEX IF NOT EXISTS prefix_withdrawal_transactions_uniquializer ON prefix_withdrawal_transactions(txHash);
 

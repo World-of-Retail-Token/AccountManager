@@ -166,6 +166,7 @@ server.addMethod('setDeposit', ({coin, user, amount}) => {
     switch (backend.getDistinction()) {
         case 'address': return backend.getAddress(user);
         case 'amount': return backend.setAwaitingDeposit(user, amount);
+        case 'tag': return backend.getTag(user);
         // TODO: tag distinction
         default: throw new Error('Unknown distinction type');
     }
@@ -174,7 +175,7 @@ server.addMethod('setDeposit', ({coin, user, amount}) => {
 server.addMethod('getDeposit', ({coin, user}) => {
     const backend = getBackend(coin);
     switch (backend.getDistinction()) {
-        case 'address': case 'amount': 
+        case 'address': case 'amount': case 'tag':
             return backend.getAwaitingDeposits(user);
         // TODO: tag distinction
         default: throw new Error('Unknown distinction type');

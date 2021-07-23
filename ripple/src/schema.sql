@@ -46,7 +46,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS prefix_withdrawal_transactions_uniquializer ON
 CREATE TABLE IF NOT EXISTS prefix_pending(
     userId BLOB PRIMARY KEY,
     amount TEXT NOT NULL,
-    address TEXT NOT NULL
+    address TEXT NOT NULL,
+    tag INTEGER NOT NULL
 );
 
 -- Accumulated account-specific amounts of fund movement

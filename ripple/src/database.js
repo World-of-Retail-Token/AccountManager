@@ -53,7 +53,7 @@ class Database {
         this.delete_userid = this.db.prepare('DELETE FROM ' + config.coin + '_tags WHERE userId = ?');
         this.insert_transaction = this.db.prepare('INSERT INTO ' + config.coin + '_transactions (userId, amount, txHash, blockHash, blockHeight, blockTime) VALUES (?, ?, ?, ?, ?, ?)');
         this.insert_withdrawal_transaction = this.db.prepare('INSERT INTO ' + config.coin + '_withdrawal_transactions (userId, amount, txHash, address, timestamp) VALUES (?, ?, ?, ?, ?)');
-        this.insert_pending = this.db.prepare('INSERT INTO ' + config.coin + '_pending (userId, address, amount) VALUES (?, ?, ?)');
+        this.insert_pending = this.db.prepare('INSERT INTO ' + config.coin + '_pending (userId, address, amount, tag) VALUES (?, ?, ?, ?)');
         this.delete_pending = this.db.prepare('DELETE FROM ' + config.coin + '_pending WHERE userId = ?');
         this.update_account_stats = this.db.prepare('UPDATE ' + config.coin + '_account_stats SET deposit = ?, withdrawal = ? WHERE userId = ?');
         this.insert_account_stats = this.db.prepare('INSERT INTO ' + config.coin + '_account_stats (userId, deposit, withdrawal) VALUES (?, ?, ?)');
@@ -124,8 +124,8 @@ class Database {
         return this.insert_withdrawal_transaction.run(userId, amount, txHash, address, timestamp);
     }
 
-    insertPending(userId, address, amount) {
-        return this.insert_pending.run(userId, address, amount);
+    insertPending(userId, address, amount, tag) {
+        return this.insert_pending.run(userId, address, amount, tag);
     }
 
     deletePending(userId) {

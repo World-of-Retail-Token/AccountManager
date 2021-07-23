@@ -103,12 +103,12 @@ class Ripple {
             while (working) {
 
                 // Queue request and wait for promise to resolve
-                const {error_message, result, status, type} = await got.post(endpointURI, {
+                const {result} = await got.post(this.backend, {
                     json: {
                         "method": "account_tx",
                         "params": [
                             {
-                                "account": address,
+                                "account": this.root_address,
                                 "binary": false,
                                 "forward": false,
                                 "ledger_index_max": -1,
@@ -121,9 +121,13 @@ class Ripple {
                 }).json();
 
                 // Ensure that we got a correct reply
-                if (error_message || !result || type !== "reply" || status !== "success") {
+                if (!result || result.status !== "success") {
                     console.log('Unexpected response received from RPC server');
-                    if (error_message) console.log(error_message);
+                    if (result && result.error_message) {
+                        this.error = new Error(result.error_message);
+                    } else if (result) {
+                        console.log(result);
+                    }
                     break;
                 }
 

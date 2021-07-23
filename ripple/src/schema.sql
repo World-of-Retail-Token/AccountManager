@@ -28,8 +28,6 @@ CREATE TABLE IF NOT EXISTS prefix_withdrawal_transactions(
     userId BLOB NOT NULL,
     amount TEXT NOT NULL,
     txHash BLOB NOT NULL,
-    blockHash BLOB NOT NULL,
-    blockHeight INTEGER NOT NULL,
     address TEXT NOT NULL,
     timestamp INTEGER NOT NULL
 );

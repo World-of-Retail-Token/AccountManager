@@ -33,12 +33,14 @@ const clean_processed_deposits = db.prepare('DELETE FROM processed_deposits');
 const clean_processed_withdrawals = db.prepare('DELETE FROM processed_withdrawals');
 const clean_rejected_withdrawals = db.prepare('DELETE FROM rejected_withdrawals');
 
+// Execution is in progress
+let working = true;
+
 // Init coin proxies
 const backends = new Map();
 for (const coin of coins) {
     backends.set(coin.name, new proxy_classes[coin.type](coin.options));
 }
-
 
 const process_deposits = async() => {
     let processed = [];
@@ -98,19 +100,21 @@ const process_withdrawals = async() => {
     return dirty;
 };
 
-const process = async () => {
-    let dirty;
-    dirty |= await process_withdrawals();
-    dirty |= await process_deposits();
-    if (!dirty) {
-        // Schedule next call
-        schedule_processing();
+const processing = async () => {
+    if (working) {
+        let dirty;
+        dirty |= await process_withdrawals();
+        dirty |= await process_deposits();
+        if (!dirty) {
+            // Schedule next call
+            schedule_processing();
+        }
     }
 };
 
 // Init processing timer
 let processing_timer;
-const schedule_processing = () => { processing_timer = setTimeout(process, 5000); };
+const schedule_processing = () => { processing_timer = setTimeout(processing, 30000); };
 
 // Schedule first call
 schedule_processing();
@@ -215,3 +219,19 @@ const app = http.createServer(function (request, response) {
 });
 
 app.listen(rpcport, rpchost);
+
+require('shutdown-handler').on('exit', async (e) => {
+    e.preventDefault();
+
+    app.close(async () => {
+        working = false;
+        clearTimeout(processing_timer);
+        backends.clear();
+        db.close();
+
+        // We'we done here
+        console.log('Cleanup is done, closing in 2 seconds...');
+        await new Promise(r => setTimeout(r, 2000));
+        process.exit(0);
+    });
+});

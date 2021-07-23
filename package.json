@@ -5,7 +5,8 @@
   "main": "index.js",
   "dependencies": {
     "better-sqlite3": "^7.4.1",
-    "json-rpc-2.0": "^0.2.16"
+    "json-rpc-2.0": "^0.2.16",
+    "shutdown-handler": "^1.0.1"
   },
   "scripts": {
     "postinstall": "(cd buterin && npm install); (cd erc20 && npm install); (cd satoshi && npm install)"

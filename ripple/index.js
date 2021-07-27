@@ -210,7 +210,7 @@ class Ripple {
                         }
 
                         // Insert transaction record
-                        this.db.insertTransaction(userId, decimalAmount, txHash, blockHash, blockHeight, blockTime);
+                        this.db.insertTransaction(userId, amount_in_drops.toString(), txHash, blockHash, blockHeight, blockTime);
 
                         // Add processed block hash if necessary
                         if (!this.db.checkBlockProcessed(blockHash)) {

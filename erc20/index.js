@@ -226,9 +226,12 @@ class ERC20 {
 
                 console.log('[Withdrawal] Estimating gas amount for transfer to %s ...', pending.address);
 
+                // Deduct fee
+                const transfer_amount = BigInt(pending.amount) - this.static_fee;
+
                 // Transaction fields
                 let transactionObject = {
-                    data: contract.methods.transfer(pending.address, Web3.utils.toHex(pending.amount)).encodeABI(),
+                    data: contract.methods.transfer(pending.address, Web3.utils.toHex(transfer_amount.toString())).encodeABI(),
                     from: this.root_provider.getAddress(),
                     nonce: Web3.utils.toHex(nonce),
                     to: this.contract_address,
@@ -369,6 +372,9 @@ class ERC20 {
 
         // Remember contract address
         this.contract_address = config.contract_address;
+
+        // Withdrawal fee
+        this.static_fee = this.toBigInt(config.static_fee || 0.0001);
     }
 
     getDistinction() {
@@ -514,7 +520,7 @@ class ERC20 {
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
         // Convert amount to minimal units
         const amount_in_units = this.toBigInt(amount);
-        if (amount_in_units < this.minimum_amount)
+        if (amount_in_units < (this.minimum_amount + this.static_fee))
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         this.db.insertPending(userId, address, amount_in_units.toString());
     }

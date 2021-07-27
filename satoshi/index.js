@@ -277,7 +277,7 @@ class Satoshi {
                 processed.push({
                     amount: decimalAmount,
                     coin: this.coin,
-                    txid,
+                    txHash: txid,
                     userId: userId.toString('hex')
                 });
 

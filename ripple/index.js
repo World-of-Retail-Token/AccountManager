@@ -307,7 +307,7 @@ class Ripple {
                 if (result.status !== 'success') {
                     // Rejects must be handled manually
                     rejected.push({
-                        amount: decimalAmount,
+                        amount: decimalAmountWithFee,
                         address: address,
                         coin: this.coin,
                         userId: userId.toString('hex')

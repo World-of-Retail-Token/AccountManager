@@ -157,7 +157,7 @@ class Ripple {
                     if (lastNodeDiff.LedgerEntryType != 'AccountRoot') continue;
 
                     // Convert amount to minimal units
-                    const amount_in_drops = BigInt(tx.Amount);
+                    const amount_in_drops = BigInt(meta.delivered_amount);
                     const decimalAmount = this.fromBigInt(amount_in_drops);
 
                     // Apply value limit

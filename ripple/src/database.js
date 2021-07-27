@@ -59,19 +59,19 @@ class RippleDatabase {
         this.select_account_pending = this.db.prepare('SELECT * FROM ' + config.coin + '_pending WHERE userId = ?');
         this.select_account_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_account_stats WHERE userId = ?');
         this.select_global_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_global_stats');
-        this.processed_block_exists = this.db.prepare('SELECT EXISTS (SELECT blockHeight FROM ' + config.coin + '_processed_blocks WHERE blockHash = ?) as found');
+        this.processed_block_exists = this.db.prepare('SELECT EXISTS (SELECT blockHeight FROM ' + config.coin + '_processed_blocks WHERE blockHeight = ?) as found');
 
         // Modification
         this.insert_userid = this.db.prepare('INSERT INTO ' + config.coin + '_tags (userId) VALUES(?)');
         this.delete_userid = this.db.prepare('DELETE FROM ' + config.coin + '_tags WHERE userId = ?');
-        this.insert_transaction = this.db.prepare('INSERT INTO ' + config.coin + '_transactions (userId, amount, txHash, blockHash, blockHeight, blockTime) VALUES (?, ?, ?, ?, ?, ?)');
+        this.insert_transaction = this.db.prepare('INSERT INTO ' + config.coin + '_transactions (userId, amount, txHash, blockHeight, blockTime) VALUES (?, ?, ?, ?, ?)');
         this.insert_withdrawal_transaction = this.db.prepare('INSERT INTO ' + config.coin + '_withdrawal_transactions (userId, amount, txHash, address, timestamp) VALUES (?, ?, ?, ?, ?)');
         this.insert_pending = this.db.prepare('INSERT INTO ' + config.coin + '_pending (userId, address, amount, tag) VALUES (?, ?, ?, ?)');
         this.delete_pending = this.db.prepare('DELETE FROM ' + config.coin + '_pending WHERE userId = ?');
         this.update_account_stats = this.db.prepare('UPDATE ' + config.coin + '_account_stats SET deposit = ?, withdrawal = ? WHERE userId = ?');
         this.insert_account_stats = this.db.prepare('INSERT INTO ' + config.coin + '_account_stats (userId, deposit, withdrawal) VALUES (?, ?, ?)');
         this.set_global_stats = this.db.prepare('UPDATE ' + config.coin + '_global_stats SET deposit = @deposit, withdrawal = @withdrawal');
-        this.insert_processed_block = this.db.prepare('INSERT INTO ' + config.coin + '_processed_blocks (blockHash, blockHeight) VALUES (?, ?)');
+        this.insert_processed_block = this.db.prepare('INSERT INTO ' + config.coin + '_processed_blocks (blockHeight) VALUES (?)');
     }
 
     getTag(userId) {
@@ -116,8 +116,8 @@ class RippleDatabase {
         return this.select_global_stats.get();
     }
 
-    checkBlockProcessed(blockHash) {
-        return !!this.processed_block_exists.get(blockHash).found;
+    checkBlockProcessed(blockHeight) {
+        return !!this.processed_block_exists.get(blockHeight).found;
     }
 
     insertUserId(userId) {
@@ -129,8 +129,8 @@ class RippleDatabase {
         return this.delete_userid.run(userId);
     }
 
-    insertTransaction(userId, amount, txHash, blockHash, blockHeight, blockTime) {
-        return this.insert_transaction.run(userId, amount, txHash, blockHash, blockHeight, blockTime);
+    insertTransaction(userId, amount, txHash, blockHeight, blockTime) {
+        return this.insert_transaction.run(userId, amount, txHash, blockHeight, blockTime);
     }
 
     insertWithdrawalTransaction(userId, amount, txHash, address, timestamp) {
@@ -156,8 +156,8 @@ class RippleDatabase {
         return this.set_global_stats.run({ deposit : deposit, withdrawal : withdrawal });
     }
 
-    insertProcessed(blockHash, blockHeight) {
-        return this.insert_processed_block.run(blockHash, blockHeight);
+    insertProcessed(blockHeight) {
+        return this.insert_processed_block.run(blockHeight);
     }
 
     makeTransaction(executor) {

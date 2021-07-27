@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS prefix_transactions(
     userId BLOB NOT NULL,
     amount TEXT NOT NULL,
     txHash BLOB NOT NULL,
-    blockHash BLOB NOT NULL,
     blockHeight INTEGER NOT NULL,
     blockTime INTEGER NOT NULL
 );
@@ -33,7 +32,6 @@ CREATE TABLE IF NOT EXISTS prefix_withdrawal_transactions(
 );
 
 CREATE TABLE IF NOT EXISTS prefix_processed_blocks(
-    blockHash BLOB PRIMARY KEY,
     blockHeight INTEGER NOT NULL
 );
 

@@ -172,8 +172,6 @@ class Ripple {
                     // Convert hashes to buffers
                     const txHashHex = tx.hash;
                     const txHash = Buffer.from(txHashHex, 'hex');
-                    const blockHashHex = lastNodeDiff.LedgerIndex;
-                    const blockHash = Buffer.from(blockHashHex, 'hex');
 
                     // Block height
                     const blockHeight = tx.ledger_index;
@@ -182,7 +180,7 @@ class Ripple {
                     const blockTime = 946684800 + tx.date;
 
                     // Break both loops if we reached processed block hash
-                    if (this.db.checkBlockProcessed(blockHash)) {
+                    if (this.db.checkBlockProcessed(blockHeight)) {
                         working = false;
                         break;
                     }
@@ -210,19 +208,18 @@ class Ripple {
                         }
 
                         // Insert transaction record
-                        this.db.insertTransaction(userId, amount_in_drops.toString(), txHash, blockHash, blockHeight, blockTime);
+                        this.db.insertTransaction(userId, amount_in_drops.toString(), txHash, blockHeight, blockTime);
 
                         // Add processed block hash if necessary
-                        if (!this.db.checkBlockProcessed(blockHash)) {
-                            console.log('[Deposit] Adding last processed block %s at height %d', blockHashHex, blockHeight);
-                            this.db.insertProcessed(blockHash, blockHeight);
+                        if (!this.db.checkBlockProcessed(blockHeight)) {
+                            console.log('[Deposit] Adding last processed block at height %d', blockHeight);
+                            this.db.insertProcessed(blockHeight);
                         }
 
                         // Will be handled by caller
                         processed.push({
                             amount: decimalAmount,
                             coin: this.coin,
-                            blockHash: blockHashHex,
                             blockHeight: blockHeight,
                             blockTime: blockTime,
                             txHash: txHashHex,
@@ -434,7 +431,6 @@ class Ripple {
         for (let entry of result) {
             delete entry.userId;
             entry.txHash = entry.txHash.toString('hex');
-            entry.blockHash = entry.blockHash.toString('hex');
             entry.amount = this.fromBigInt(entry.amount);
         }
         return result;

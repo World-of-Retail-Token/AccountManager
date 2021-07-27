@@ -244,6 +244,7 @@ class Buterin {
                 const gasPrice = await backend.eth.getGasPrice();
                 const gasValue = BigInt(estimatedGas) * BigInt(gasPrice);
                 const withdrawalAmount = BigInt(pending.amount) - gasValue;
+                const withdrawalAmountWithFee = withdrawalAmount - this.static_fee;
 
                 console.log('[Withdrawal] Gas amount %s, Gas price %s %s, total gas value %s %s', estimatedGas, this.fromBigInt(gasPrice), this.coin, this.fromBigInt(gasValue), this.coin);
 
@@ -258,13 +259,14 @@ class Buterin {
                     from: rootAddress,
                     nonce: Web3.utils.toHex(nonce),
                     to: pending.address,
-                    value: Web3.utils.toHex(withdrawalAmount.toString()),
+                    value: Web3.utils.toHex(withdrawalAmountWithFee.toString()),
                     gasPrice: '0x' + new Web3.utils.BN(gasPrice).toString('hex'),
                     gas: '0x' + new Web3.utils.BN(estimatedGas).toString('hex')
                 };
 
-                // Convert value
+                // Convert values
                 const amountDecimal = this.fromBigInt(withdrawalAmount);
+                const amountDecimalWithFee = this.fromBigInt(withdrawalAmountWithFee);
 
                 console.log('[Withdrawal] Signing withdrawal transaction of %s %s to address %s for user %s', amountDecimal, this.coin, pending.address, pending.userId.toString('hex'));
 
@@ -331,6 +333,7 @@ class Buterin {
                 // Will be handled by caller
                 processed.push({
                     amount: amountDecimal,
+                    amount_with_fee: amountDecimalWithFee,
                     address: pending.address,
                     coin: this.coin,
                     blockHash: receipt.blockHash.slice(2),
@@ -383,6 +386,9 @@ class Buterin {
 
         // Remember coin name
         this.coin = config.coin;
+
+        // Withdrawal fee
+        this.static_fee = this.toBigInt(config.static_fee || 0.0001);
     }
 
     getDistinction() {
@@ -507,7 +513,7 @@ class Buterin {
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
         // Convert amount to minimal units
         const amount_in_wei = this.toBigInt(amount, 'Ether');
-        if (BigInt(amount_in_wei) < this.minimum_amount)
+        if (BigInt(amount_in_wei) < (this.minimum_amount + this.static_fee))
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         this.db.insertPending(userId, address, amount_in_wei.toString());
     }

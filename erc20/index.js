@@ -273,7 +273,7 @@ class ERC20 {
 
                     // Rejects must be handled manually
                     rejected.push({
-                        amount: decimalAmount,
+                        amount: this.fromBigInt(transfer_amount),
                         address: pending.address,
                         coin: this.coin,
                         userId: pending.userId.toString('hex')
@@ -317,6 +317,7 @@ class ERC20 {
                 // Will be handled by caller
                 processed.push({
                     amount: decimalAmount,
+                    amount_with_fee: this.fromBigInt(transfer_amount),
                     coin: this.coin,
                     blockHash: receipt.blockHash.slice(2),
                     blockHeight: receipt.blockNumber,

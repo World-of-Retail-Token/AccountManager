@@ -192,7 +192,7 @@ class Ripple {
                         continue;
 
                     // Create and keep new update tx
-                    const tx = this.db.makeTransaction(() => {
+                    const dbTx = this.db.makeTransaction(() => {
 
                         // We have new confirmed yet unprocessed UTXO
                         console.log('[Deposit] Address %s received new confirmed input of amount %s %s which is greater than threshold, adding to database ...', tx.Account, decimalAmount, this.coin);
@@ -234,7 +234,7 @@ class Ripple {
                     });
 
                     // Will be executed later
-                    changes.push(tx);
+                    changes.push(dbTx);
                 }
             }
 

@@ -275,7 +275,12 @@ class Ripple {
             for (const {userId, address, tag, amount} of pending) {
                 let DestinationTag;
                 if (tag !== -1) DestinationTag = tag;
+
+                //Subtract fee
+                const transfer_amount = BigInt(amount) - this.static_fee;
+
                 const decimalAmount = this.fromBigInt(amount);
+                const decimalAmountWithFee = this.fromBigInt(transfer_amount);
 
                 console.log('[Withdrawal] Sending %s %s to %s %s from account %s', decimalAmount, this.coin, address, DestinationTag ? ':' + DestinationTag : '', userId.toString('hex'));
 
@@ -289,7 +294,7 @@ class Ripple {
                                 "key_type": "secp256k1",
                                 "tx_json": {
                                     "Account": this.root_address,
-                                    "Amount": amount,
+                                    "Amount": transfer_amount.toString(),
                                     "Destination": address,
                                     DestinationTag,
                                     "TransactionType": "Payment"
@@ -343,6 +348,7 @@ class Ripple {
                 // Will be handled by caller
                 processed.push({
                     amount: decimalAmount,
+                    amount_with_fee: decimalAmountWithFee,
                     coin: this.coin,
                     txHash: txHashHex,
                     userId: userId.toString('hex')
@@ -374,6 +380,8 @@ class Ripple {
         this.mnemonic = config.mnemonic;
         // Remember coin name
         this.coin = config.coin;
+        // Withdrawal fee
+        this.static_fee = this.toBigInt(config.static_fee || 0.01);
 
         // Get root account address
         this.init().catch(e => {
@@ -504,7 +512,7 @@ class Ripple {
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
         // Convert amount to minimal units
         const amount_in_drops = this.toBigInt(amount);
-        if (amount_in_drops < this.minimum_amount)
+        if (amount_in_drops < (this.minimum_amount + this.static_fee))
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         this.db.insertPending(userId, address, amount_in_drops.toString(), (tag != undefined) ? tag : -1);
     }

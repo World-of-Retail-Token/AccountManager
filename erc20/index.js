@@ -206,7 +206,7 @@ class ERC20 {
         // Web3 backend
         const backend = new Web3(this.root_provider);
 
-        console.log('[Withdrawal] Checking for new %s withdrawals', this.coin);
+        console.log('[Withdrawal] Checking address %s for new %s withdrawals', this.root_provider.getAddress(), this.coin);
 
         // ERC20 contract interface
         const contract = new backend.eth.Contract(standardAbi, this.contract_address, {from: this.root_provider.getAddress()});

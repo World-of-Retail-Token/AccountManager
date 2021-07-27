@@ -86,7 +86,7 @@ class Ripple {
             return this.error;
         }
 
-        console.log('[Deposit] Checking for new %s deposits', this.coin);
+        console.log('[Deposit] Checking address %s for new %s deposits', this.root_address, this.coin);
 
         try {
             const limit = 10;

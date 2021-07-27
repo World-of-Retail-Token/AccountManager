@@ -289,7 +289,7 @@ class Buterin {
 
                     // Rejects must be handled manually
                     rejected.push({
-                        amount: this.fromBigInt(pending.amount),
+                        amount: amountDecimal,
                         address: pending.address,
                         coin: this.coin,
                         userId: pending.userId.toString('hex')

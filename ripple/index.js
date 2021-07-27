@@ -170,7 +170,7 @@ class Ripple {
                         continue;
 
                     // Convert hashes to buffers
-                    const txHashHex = lastNodeDiff.LedgerIndex;
+                    const txHashHex = tx.hash;
                     const txHash = Buffer.from(txHashHex, 'hex');
                     const blockHashHex = lastNodeDiff.LedgerIndex;
                     const blockHash = Buffer.from(blockHashHex, 'hex');

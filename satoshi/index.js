@@ -230,11 +230,11 @@ class Satoshi {
                     // Report backend error if there is any
                     if (err) {
                         console.log('[Withdrawal] Backend returned RPC error');
-                        console.log(e);
+                        console.log(err);
                         // Backend errors are considered fatal
                         // This means that no futher attempts of processing until this situation is resolved manually
-                        this.error = e;
-                        return e;
+                        this.error = err;
+                        return err;
                     }
 
                     // There must be an error happened while validating destination address

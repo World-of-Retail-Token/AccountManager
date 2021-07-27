@@ -22,6 +22,9 @@ class Satoshi {
     // Coin name
     coin;
 
+    // Withdrawal fee
+    static_fee;
+
     // Error object
     error = null;
 
@@ -195,9 +198,9 @@ class Satoshi {
             }
 
             for (const {userId, amount, address} of pending) {
-
                 // Convert from satoshis to decimal amount
                 const decimalAmount = this.fromBigInt(amount);
+                const decimalAmountWithFee = this.fromBigInt(BigInt(amount) - this.static_fee);
 
                 // There are two possible failures may happen:
                 //   1. Failure while checking the destination address
@@ -213,7 +216,7 @@ class Satoshi {
                     // If address is valid then enqueue
                     //    and wait for transaction id
                     if (isvalid) {
-                        txid = await this.backend.sendToAddress({ address : address, amount: Number(decimalAmount), comment: userId.toString('hex') });
+                        txid = await this.backend.sendToAddress({ address : address, amount: Number(decimalAmountWithFee), comment: userId.toString('hex') });
                     }
 
                 } catch (e) {
@@ -276,6 +279,7 @@ class Satoshi {
                 // Will be handled by caller
                 processed.push({
                     amount: decimalAmount,
+                    amount_with_fee: decimalAmountWithFee,
                     coin: this.coin,
                     txHash: txid,
                     userId: userId.toString('hex')
@@ -295,7 +299,6 @@ class Satoshi {
     }
 
     constructor(config) {
-
         // Init frontend database
         this.db = new SatoshiDatabase(config);
         // Init backend RPC accessor class
@@ -311,6 +314,8 @@ class Satoshi {
         this.coin = config.coin;
         // Remember passphrase
         this.unlock_password = config.unlock_password;
+        // Withdrawal fee
+        this.static_fee = this.toBigInt(config.static_fee || 0.0001);
     }
 
     getDistinction() {
@@ -432,7 +437,7 @@ class Satoshi {
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
         // Convert amount to minimal units
         const amount_in_satoshi = this.toBigInt(amount);
-        if (amount_in_satoshi < this.minimum_amount)
+        if (amount_in_satoshi < (this.minimum_amount + this.static_fee))
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         this.db.insertPending(userId, address, amount_in_satoshi.toString());
     }

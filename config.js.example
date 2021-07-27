@@ -17,6 +17,7 @@ const coins = [
             },
             minimum_amount: 0.00001,
             confirmations: 3,
+            static_fee: 0.00001,
         }
     }
 ];

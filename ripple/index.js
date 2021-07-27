@@ -253,7 +253,7 @@ class Ripple {
         }
     }
 
-    async processPending(processed = []) {
+    async processPending(processed = [], rejected = []) {
         // Don't do anything unless root account is available
         if (undefined == this.root_address)
             return;
@@ -279,18 +279,18 @@ class Ripple {
 
                 console.log('[Withdrawal] Sending %s %s to %s %s from account %s', decimalAmount, this.coin, address, DestinationTag ? ':' + DestinationTag : '', userId.toString('hex'));
 
-                const {result} = await got.post(endpointURI, {
+                const {result} = await got.post(this.backend, {
                     json: {
                         "method": "submit",
                         "params": [
                             {
                                 "offline": false,
-                                "passphrase": entryKey,
+                                "passphrase": this.mnemonic,
                                 "key_type": "secp256k1",
                                 "tx_json": {
-                                    "Account": address,
+                                    "Account": this.root_address,
                                     "Amount": amount,
-                                    "Destination": rootAccount,
+                                    "Destination": address,
                                     DestinationTag,
                                     "TransactionType": "Payment"
                                 }
@@ -300,6 +300,14 @@ class Ripple {
                 }).json();
 
                 if (result.status !== 'success') {
+                    // Rejects must be handled manually
+                    rejected.push({
+                        amount: decimalAmount,
+                        address: address,
+                        coin: this.coin,
+                        userId: userId.toString('hex')
+                    });
+
                     // Transaction failed
                     console.log('[Withdrawal] Backend returned RPC error on submission');
                     this.error = new Error(error_message);
@@ -329,9 +337,16 @@ class Ripple {
                     this.db.deletePending(userId);
 
                     // Insert withdrawal transaction record
-                    const txHash = Buffer.from(txid, 'hex');
                     this.db.insertWithdrawalTransaction(userId, amount, txHash, address, Math.floor(Date.now() / 1000));
                 })()
+
+                // Will be handled by caller
+                processed.push({
+                    amount: decimalAmount,
+                    coin: this.coin,
+                    txid: txHashHex,
+                    userId: userId.toString('hex')
+                });
 
                 console.log('[Withdrawal] Processed withdrawal transaction %s %s (%s %s) for account %s', txHashHex, address, decimalAmount, this.coin, userId.toString('hex'));
             }

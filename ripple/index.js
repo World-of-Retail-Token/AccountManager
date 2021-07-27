@@ -150,7 +150,7 @@ class Ripple {
                     // 2. Filter out transactions which have no affected nodes
                     // 3. Ignore outgoing transactions
                     // 4. Filter out transactions without destination tag
-                    if (!validated || meta.AffectedNodes.length == 0 || meta.TransactionResult != 'tesSUCCESS' || tx.Destination !== this.root_account || tx.DestinationTag === undefined) continue;
+                    if (!meta || !tx || !validated || meta.AffectedNodes.length == 0 || meta.TransactionResult != 'tesSUCCESS' || tx.Destination !== this.root_address || tx.DestinationTag === undefined) continue;
 
                     const lastMetaNode = meta.AffectedNodes[meta.AffectedNodes.length - 1];
                     const lastNodeDiff = (lastMetaNode.CreatedNode || lastMetaNode.ModifiedNode);

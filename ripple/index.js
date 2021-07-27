@@ -344,7 +344,7 @@ class Ripple {
                 processed.push({
                     amount: decimalAmount,
                     coin: this.coin,
-                    txid: txHashHex,
+                    txHash: txHashHex,
                     userId: userId.toString('hex')
                 });
 

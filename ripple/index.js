@@ -556,6 +556,7 @@ class Ripple {
         if (amount_in_drops < (this.minimum_amount + this.static_fee))
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         this.db.insertPending(userId, address, amount_in_drops.toString(), (tag != undefined) ? tag : -1);
+        return {address, amount, tag};
     }
 }
 

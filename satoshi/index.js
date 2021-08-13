@@ -481,6 +481,7 @@ class Satoshi {
         if (amount_in_satoshi < (this.minimum_amount + this.static_fee))
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         this.db.insertPending(userId, address, amount_in_satoshi.toString());
+        return {address, amount};
     }
 }
 

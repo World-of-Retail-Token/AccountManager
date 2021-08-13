@@ -583,6 +583,7 @@ class ERC20 {
         if (amount_in_units < (this.minimum_amount + this.static_fee))
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         this.db.insertPending(userId, address, amount_in_units.toString());
+        return {address, amount};
     }
 }
 

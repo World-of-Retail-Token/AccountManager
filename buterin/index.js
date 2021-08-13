@@ -107,26 +107,29 @@ class Buterin {
                 const gasPrice = await backend.eth.getGasPrice();
                 const gasValue = BigInt(gas) * BigInt(gasPrice);
 
+                // Amount to be processed
+                const depositAmount = BigInt(pending);
+
                 // Deduct estimated total gas price from amount
                 //  Note that we're using pending balane here
-                const depositAmount = BigInt(pending) - gasValue;
+                const depositTrueAmount = depositAmount - gasValue;
 
                 // Convert value
                 const amountDecimal = this.fromBigInt(depositAmount);
 
-                console.log('[Deposit] Gas amount %s, Gas price %s %s, total gas value %s %s, final deposit amount %s %s', gas, this.fromBigInt(gasPrice), this.coin, this.fromBigInt(gasValue), this.coin, amountDecimal, this.coin);
+                console.log('[Deposit] Gas amount %s, Gas price %s %s, total gas value %s %s, deposit amount %s %s, true deposit amount %s %s', gas, this.fromBigInt(gasPrice), this.coin, this.fromBigInt(gasValue), this.coin, amountDecimal, this.coin, this.fromBigInt(depositTrueAmount), this.coin);
 
                 // Transaction fields
                 const transactionObject = {
                     from: address,
                     nonce: Web3.utils.toHex(nonce),
                     to: rootAddress,
-                    value: Web3.utils.toHex(depositAmount.toString()),
+                    value: Web3.utils.toHex(depositTrueAmount.toString()),
                     gasPrice: '0x' + new Web3.utils.BN(gasPrice).toString('hex'),
                     gas: '0x' + new Web3.utils.BN(gas).toString('hex')
                 };
 
-                console.log('[Deposit] Signing deposit transaction of %s %s from address %s for user %s', amountDecimal, this.coin, address, userId.toString('hex'));
+                console.log('[Deposit] Signing deposit transaction of %s %s from address %s for user %s', this.fromBigInt(depositTrueAmount), this.coin, address, userId.toString('hex'));
 
                 // Sign transaction
                 const signed = await backend.eth.signTransaction(transactionObject);

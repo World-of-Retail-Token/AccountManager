@@ -624,13 +624,15 @@ class ERC20 {
         } catch(e) {
             throw new Error('Amount is either not invalid or not provided');
         }
-        if (undefined !== this.db.getAccountPending(userId))
-            throw new Error('Already have sheduled payout for account ' + userIdHex);
         if (address == this.root_provider.getAddress())
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
         if (amount_in_units < (this.minimum_amount + this.static_fee))
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
-        this.db.insertPending(userId, address, amount_in_units.toString());
+        this.db.makeTransaction(() => {
+            if (undefined !== this.db.getAccountPending(userId))
+                throw new Error('Already have sheduled payout for account ' + userIdHex);
+            this.db.insertPending(userId, address, amount_in_units.toString());
+        })();
         return {address, amount};
     }
 }

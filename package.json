@@ -10,6 +10,6 @@
     "shutdown-handler": "^1.0.1"
   },
   "scripts": {
-    "postinstall": "(cd buterin && npm install); (cd erc20 && npm install); (cd satoshi && npm install)"
+    "postinstall": "(cd buterin && npm install); (cd erc20 && npm install); (cd ripple && npm install); (cd satoshi && npm install)"
   }
 }

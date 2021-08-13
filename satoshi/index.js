@@ -68,10 +68,13 @@ class Satoshi {
             // Transactions to apply
             let changes = [];
 
+            // Block height cache
+            let blockHeights = new Map();
+
             while (working) {
 
                 // Select (next) batch of records
-                const transactions = await this.backend.listTransactions({count: count, label: this.label, skip: skip, include_watchonly: false});
+                const transactions = await this.backend.listTransactions({count: count, skip: skip});
                 if (transactions.length == 0)
                     break;
                 skip += count;
@@ -100,6 +103,17 @@ class Satoshi {
                     const txHash = Buffer.from(record.txid, 'hex');
                     const blockHash = Buffer.from(record.blockhash, 'hex');
 
+                    // Some coins provide no block height
+                    if (!record.blockheight) {
+                        if (blockHeights.has(record.blockhash)) {
+                            record.blockheight = blockHeights.get(record.blockhash);
+                        } else {
+                            const blockheader = await this.backend.getBlockHeader(record.blockhash);
+                            record.blockheight = blockheader.height;
+                            blockHeights.set(record.blockhash, blockheader.height);
+                        }
+                    }
+
                     // Break both loops if we reached processed block hash
                     if (this.db.checkBlockProcessed(blockHash)) {
                         working = false;
@@ -127,6 +141,7 @@ class Satoshi {
                             let {deposit, withdrawal} = this.db.getGlobalStats();
                             this.db.setGlobalStats((BigInt(deposit) + amount_in_satoshi).toString(), withdrawal);
                         }
+
 
                         // Insert transaction record
                         this.db.insertTransaction(userId, decimalAmount, txHash, record.vout, blockHash, record.blockheight, record.blocktime);

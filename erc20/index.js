@@ -407,8 +407,22 @@ class ERC20 {
         if (this.error !== null)
             return false;
 
-        const amount_in_units = this.toBigInt(amount);
-        const userId = Buffer.from(userIdHex, 'hex');
+        let amount_in_units;
+        let userId;
+
+        // Amount must be decimal
+        try {
+            amount_in_units = this.toBigInt(amount);
+        } catch(e) {
+            throw new Error('Amount is either not invalid or not provided');
+        }
+
+        // User id must be hex string
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
 
         try {
             this.db.insertAwaitingDeposit(userId, amount_in_units.toString());
@@ -429,7 +443,15 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     getAwaitingDeposits(userIdHex) {
-        const userId = Buffer.from(userIdHex, 'hex');
+
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
+
         let result = this.db.getAwaitingDepositsForId(userId);
         for (let entry of result) {
             delete entry.userId;
@@ -445,7 +467,14 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     getAccountInfo(userIdHex) {
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
+
         const {deposit, withdrawal} = this.db.getAccountStats(userId)
         return {
             deposit: this.fromBigInt(deposit),
@@ -459,7 +488,14 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     getAccountDeposits(userIdHex, skip = 0) {
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
+
         let result = this.db.getTransactions(userId, skip);
         for (let entry of result) {
             delete entry.userId;
@@ -476,7 +512,13 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     getAccountWithdrawals(userIdHex, skip = 0) {
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
         let result = this.db.getWithdrawalTransactions(userId, skip);
         for (let entry of result) {
             delete entry.userId;
@@ -493,7 +535,13 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     getAccountPending(userIdHex) {
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
         let entry = this.db.getAccountPending(userId);
         if (entry) {
             entry.amount = this.fromBigInt(entry.amount);
@@ -514,13 +562,24 @@ class ERC20 {
             throw this.error;
         if (!Web3.utils.isAddress(address))
             throw new Error('Invalid receiving address');
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
+        // Amount must be decimal
+        let amount_in_units;
+        try {
+            amount_in_units = this.toBigInt(amount);
+        } catch(e) {
+            throw new Error('Amount is either not invalid or not provided');
+        }
         if (undefined !== this.db.getAccountPending(userId))
             throw new Error('Already have sheduled payout for account ' + userIdHex);
         if (address == this.root_provider.getAddress())
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
-        // Convert amount to minimal units
-        const amount_in_units = this.toBigInt(amount);
         if (amount_in_units < (this.minimum_amount + this.static_fee))
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         this.db.insertPending(userId, address, amount_in_units.toString());

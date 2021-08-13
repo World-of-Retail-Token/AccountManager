@@ -345,7 +345,13 @@ class Satoshi {
     async getAddress(userIdHex) {
         if (this.error !== null)
             return false;
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
         const existing = this.db.getAddress(userId);
         if (existing)
             return existing;
@@ -364,7 +370,13 @@ class Satoshi {
      * @userIdHex User identifier in hex encoding
      */
     getAccountInfo(userIdHex) {
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
         const {deposit, withdrawal} = this.db.getAccountStats(userId)
         return {
             deposit: this.fromBigInt(deposit),
@@ -378,7 +390,13 @@ class Satoshi {
      * @userIdHex User identifier in hex encoding
      */
     getAccountDeposits(userIdHex, skip = 0) {
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
         let result = this.db.getTransactions(userId, skip);
         for (let entry of result) {
             delete entry.userId;
@@ -395,7 +413,13 @@ class Satoshi {
      * @userIdHex User identifier in hex encoding
      */
     getAccountWithdrawals(userIdHex, skip = 0) {
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
         let result = this.db.getWithdrawalTransactions(userId, skip);
         for (let entry of result) {
             delete entry.userId;
@@ -411,7 +435,13 @@ class Satoshi {
      * @userIdHex User identifier in hex encoding
      */
     getAccountPending(userIdHex) {
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
         let entry = this.db.getAccountPending(userId);
         if (entry) {
             entry.amount = this.fromBigInt(entry.amount);
@@ -430,13 +460,24 @@ class Satoshi {
     setAccountPending(userIdHex, address, amount) {
         if (this.error !== null)
             throw this.error;
-        const userId = Buffer.from(userIdHex, 'hex');
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
+        // Amount must be decimal
+        let amount_in_satoshi;
+        try {
+            amount_in_satoshi = this.toBigInt(amount);
+        } catch(e) {
+            throw new Error('Amount is either not invalid or not provided');
+        }
         if (undefined !== this.db.getAccountPending(userId))
             throw new Error('Already have sheduled payout for account ' + userIdHex);
         if (undefined !== this.db.getUserId(address))
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")
-        // Convert amount to minimal units
-        const amount_in_satoshi = this.toBigInt(amount);
         if (amount_in_satoshi < (this.minimum_amount + this.static_fee))
             throw new Error('Amount ' + amount + ' is too small for successful payment to be scheduled');
         this.db.insertPending(userId, address, amount_in_satoshi.toString());

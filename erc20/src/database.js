@@ -53,7 +53,7 @@ class ERC20Database {
         this.select_awaiting_deposits = this.db.prepare('SELECT * FROM ' + config.coin + '_awaiting_deposits');
         this.transaction_exists = this.db.prepare('SELECT EXISTS (SELECT entryId FROM ' + config.coin + '_transactions WHERE txHash = ?) as found');
         this.select_transactions = this.db.prepare('SELECT * FROM ' + config.coin + '_transactions WHERE userId = @userId ORDER BY entryId DESC LIMIT 10 OFFSET @offset');
-        this.select_top_block = this.db.prepare('SELECT COALESCE(max(blockHeight), -1) AS top_block FROM ' + config.coin + '_transactions');
+        this.select_top_block = this.db.prepare('SELECT COALESCE(max(blockHeight), 0) AS top_block FROM ' + config.coin + '_transactions');
         this.select_withdrawal_transactions = this.db.prepare('SELECT * FROM ' + config.coin + '_withdrawal_transactions WHERE userId = @userId ORDER BY entryId DESC LIMIT 10 OFFSET @offset');
         this.select_pending = this.db.prepare('SELECT * FROM ' + config.coin + '_pending');
         this.select_account_pending = this.db.prepare('SELECT * FROM ' + config.coin + '_pending WHERE userId = ?');

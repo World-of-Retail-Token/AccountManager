@@ -434,33 +434,39 @@ class ERC20 {
             throw new Error('userId is not a valid hex string');
         }
 
-        // Get list of awaiting deposits
-        const awaitingDeposits = this.db.getAwaitingDeposits();
+        // Randomization is performed atomically
+        //    to ensure consistent behaviour
+        return this.db.makeTransaction(() => {
 
-        // Ensure that amount is unique by deducting a small random sum if necessary
-        while (true) {
-            // No need for deduction if there are no deposits or if this deposit is unique
-            if (0 == awaitingDeposits.size || !awaitingDeposits.has(amount_in_units))
-                break;
+            // Get list of awaiting deposits
+            const awaitingDeposits = this.db.getAwaitingDeposits();
 
-            // Non-unique deposit, generate bigint adjustment
-            const adjustment = random(1 + bits) - bias;
+            // Ensure that amount is unique by deducting a small random sum if necessary
+            while (true) {
+                // No need for deduction if there are no deposits or if this deposit is unique
+                if (0 == awaitingDeposits.size || !awaitingDeposits.has(amount_in_units))
+                    break;
 
-            // Apply adjustment
-            amount_in_units -= adjustment;
-        }
+                // Non-unique deposit, generate bigint adjustment
+                const adjustment = random(1 + bits) - bias;
 
-        try {
-            this.db.insertAwaitingDeposit(userId, amount_in_units.toString());
-            return {
-                address: this.root_provider.getAddress(),
-                amount: this.fromBigInt(amount_in_units)
-            };
-        } catch(e) {
-            console.log('Failed to insert awaiting deposit entry');
-            console.log(e);
-            return false;
-        }
+                // Apply adjustment
+                amount_in_units -= adjustment;
+            }
+
+            try {
+                this.db.insertAwaitingDeposit(userId, amount_in_units.toString());
+                return {
+                    address: this.root_provider.getAddress(),
+                    amount: this.fromBigInt(amount_in_units)
+                };
+            } catch(e) {
+                console.log('Failed to insert awaiting deposit entry');
+                console.log(e);
+                return false;
+            }
+
+        })();
     }
 
     /**

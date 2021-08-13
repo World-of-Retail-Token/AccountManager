@@ -63,6 +63,7 @@ class ERC20Database {
         // Modification
         this.insert_awaiting_deposit = this.db.prepare('INSERT INTO ' + config.coin + '_awaiting_deposits (userId, amount) VALUES(?, ?)');
         this.delete_awaiting_deposit = this.db.prepare('DELETE FROM ' + config.coin + '_awaiting_deposits WHERE amount = ?');
+        this.delete_awaiting_deposit_for_userid = this.db.prepare('DELETE FROM ' + config.coin + '_awaiting_deposits WHERE userId = ?');
         this.insert_transaction = this.db.prepare('INSERT INTO ' + config.coin + '_transactions (userId, amount, txHash, blockHash, blockHeight, blockTime) VALUES (?, ?, ?, ?, ?, ?)');
         this.insert_withdrawal_transaction = this.db.prepare('INSERT INTO ' + config.coin + '_withdrawal_transactions (userId, amount, txHash, blockHash, blockHeight, address, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)');
         this.insert_pending = this.db.prepare('INSERT INTO ' + config.coin + '_pending (userId, address, amount) VALUES (?, ?, ?)');
@@ -130,6 +131,10 @@ class ERC20Database {
 
     deleteAwaitingDeposit(amount) {
         return this.delete_awaiting_deposit.run(amount);
+    }
+
+    deleteAwaitingDepositsForId(userId) {
+        return !!this.delete_awaiting_deposit_for_userid.run(userId).changes;
     }
 
     insertTransaction(userId, amount, txHash, blockHash, blockHeight, blockTime) {

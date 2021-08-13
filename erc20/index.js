@@ -4,6 +4,7 @@ import standardAbi from './src/erc20_abi.js';
 import ERC20Database from './src/database.js';
 import bip39 from 'bip39';
 import Web3 from 'web3';
+import random from 'random-bigint';
 import HDWalletProvider from "@truffle/hdwallet-provider";
 
 async function listERC20Transactions(backend, contract, address, fromBlock, confirmations) {
@@ -407,6 +408,11 @@ class ERC20 {
         if (this.error !== null)
             return false;
 
+        // Randomizer settings
+        //   the range between -128n..127n
+        const bits = 7;
+        const bias = 2n ** BigInt(bits);
+
         let amount_in_units;
         let userId;
 
@@ -417,11 +423,31 @@ class ERC20 {
             throw new Error('Amount is either not invalid or not provided');
         }
 
+        // Ensure that deposit value is no less than allowed minimum amount
+        if ((amount_in_units + bias) < this.minimum_amount)
+            throw new Error('Amount is too small');
+
         // User id must be hex string
         try {
             userId = Buffer.from(userIdHex, 'hex');
         } catch(e) {
             throw new Error('userId is not a valid hex string');
+        }
+
+        // Get list of awaiting deposits
+        const awaitingDeposits = this.db.getAwaitingDeposits();
+
+        // Ensure that amount is unique by deducting a small random sum if necessary
+        while (true) {
+            // No need for deduction if there are no deposits or if this deposit is unique
+            if (0 == awaitingDeposits.size || !awaitingDeposits.has(amount_in_units))
+                break;
+
+            // Non-unique deposit, generate bigint adjustment
+            const adjustment = random(1 + bits) - bias;
+
+            // Apply adjustment
+            amount_in_units -= adjustment;
         }
 
         try {
@@ -459,6 +485,22 @@ class ERC20 {
             entry.amount = this.fromBigInt(entry.amount);
         }
         return result;
+    }
+
+    /**
+     * Delete awaiting deposits for specified user
+     *
+     * @userIdHex User identifier in hex encoding
+     */
+    deleteAwaitingDeposit(userIdHex) {
+        // User id must be hex string
+        let userId;
+        try {
+            userId = Buffer.from(userIdHex, 'hex');
+        } catch(e) {
+            throw new Error('userId is not a valid hex string');
+        }
+        return this.db.deleteAwaitingDepositsForId(userId);
     }
 
     /**

@@ -172,6 +172,18 @@ server.addMethod('setDeposit', ({coin, user, amount}) => {
     }
 });
 
+server.addMethod('deleteDeposit', ({coin, user}) => {
+    const backend = getBackend(coin);
+    switch (backend.getDistinction()) {
+        case 'address': case 'tag':
+            return false; // No-op for now
+        case 'amount':
+            return backend.deleteAwaitingDeposit(user);
+        // TODO: tag distinction
+        default: throw new Error('Unknown distinction type');
+    }
+});
+
 server.addMethod('getDeposit', ({coin, user}) => {
     const backend = getBackend(coin);
     switch (backend.getDistinction()) {

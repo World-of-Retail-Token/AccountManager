@@ -10,6 +10,7 @@
     "bip39": "^3.0.4",
     "ethereumjs-util": "^7.1.0",
     "hdkey": "^2.0.1",
+    "random-bigint": "^0.0.1",
     "web3": "^1.4.0"
   }
 }

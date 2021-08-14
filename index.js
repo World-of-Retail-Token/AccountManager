@@ -196,6 +196,14 @@ server.addMethod('getDeposit', ({coin, user}) => {
 
 server.addMethod('getProxyInfo', ({coin}) => getBackend(coin).getProxyInfo());
 server.addMethod('getStats', ({coin, user}) => getBackend(coin).getAccountInfo(user));
+server.addMethod('getAllCoinStats', db.transaction(({user}) => {
+    let result = { };
+    for (const [coin, backend] of backends.entries()) {
+        result[coin] = backend.getAccountInfo(user);
+    }
+    return result;
+}));
+
 server.addMethod('listDeposits', ({coin, user, skip}) => getBackend(coin).getAccountDeposits(user, skip));
 server.addMethod('listWithdrawals', ({coin, user, skip}) => getBackend(coin).getAccountWithdrawals(user, skip));
 server.addMethod('getPending', ({coin, user}) => getBackend(coin).getAccountPending(user));

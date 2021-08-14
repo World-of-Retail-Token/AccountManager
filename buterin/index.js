@@ -408,7 +408,8 @@ class Buterin {
             distinction: this.getDistinction(),
             globalStats: {
                 deposit: this.fromBigInt(deposit),
-                withdrawal: this.fromBigInt(withdrawal)
+                withdrawal: this.fromBigInt(withdrawal),
+                balance: this.fromBigInt(deposit - withdrawal)
             }
         }
     }

@@ -125,7 +125,7 @@ const processing = async () => {
 
 // Init processing timer
 let processing_timer;
-const schedule_processing = () => { processing_timer = setTimeout(processing, 60000); };
+const schedule_processing = () => { processing_timer = setTimeout(processing, 120000); };
 
 // Schedule first call
 schedule_processing();

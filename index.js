@@ -207,7 +207,7 @@ server.addMethod('getAllCoinStats', db.transaction(({user}) => {
 server.addMethod('listDeposits', ({coin, user, skip}) => getBackend(coin).getAccountDeposits(user, skip));
 server.addMethod('listWithdrawals', ({coin, user, skip}) => getBackend(coin).getAccountWithdrawals(user, skip));
 server.addMethod('getPending', ({coin, user}) => getBackend(coin).getAccountPending(user));
-server.addMethod('setPending', ({coin, user, address, amount}) => getBackend(coin).setAccountPending(user, address, amount));
+server.addMethod('setPending', ({coin, user, address, amount, tag}) => getBackend(coin).setAccountPending(user, address, amount, tag));
 
 // TODO: More methods
 

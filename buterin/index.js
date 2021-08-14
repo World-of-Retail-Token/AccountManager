@@ -456,7 +456,7 @@ class Buterin {
         const {deposit, withdrawal} = this.db.getAccountStats(userId)
         return {
             deposit: this.fromBigInt(deposit),
-            withdrawal: this.fromBigInti(withdrawal)
+            withdrawal: this.fromBigInt(withdrawal)
         };
     }
 

@@ -377,7 +377,7 @@ class Satoshi {
     }
 
     async getAwaitingDeposits(userIdHex) {
-        return [{ await this.getAddress(userIdHex)}];
+        return [ await this.getAddress(userIdHex) ];
     }
 
     /**

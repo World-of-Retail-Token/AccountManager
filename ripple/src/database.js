@@ -77,7 +77,7 @@ class RippleDatabase {
     getTag(userId) {
         const record = this.select_tag.get(userId);
         if (!record) return undefined;
-        return record.tag;
+        return record;
     }
 
     getUserId(tag) {

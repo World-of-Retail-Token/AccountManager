@@ -424,16 +424,17 @@ class Ripple {
         } catch(e) {
             throw new Error('userId is not a valid hex string');
         }
-        const existing = this.db.getTag(userId);
-        if (existing)
-            return existing;
-        return this.db.insertUserId(userId);
+        let tag = this.db.getTag(userId);
+        if (!tag) {
+            tag = this.db.insertUserId(userId);
+        }
+        return { address : this.root_address, ...tag };
     }
 
     getAwaitingDeposits(userIdHex) {
         if (this.root_address == undefined)
             throw new Error('Not initialized yet, please try again a bit later');
-        return [{ address : this.root_address, tag : this.getTag(userIdHex)}];
+        return [ this.getTag(userIdHex) ];
     }
 
     /**

@@ -370,14 +370,14 @@ class Satoshi {
         }
         const existing = this.db.getAddress(userId);
         if (existing)
-            return existing;
+            return { address : existing };
         const address = await this.backend.getNewAddress({label: this.label});
         this.db.insertAddress(userId, address);
-        return address;
+        return { address };
     }
 
     async getAwaitingDeposits(userIdHex) {
-        return [{ address : await this.getAddress(userIdHex)}];
+        return [{ await this.getAddress(userIdHex)}];
     }
 
     /**

@@ -4,6 +4,7 @@ import ERC20 from './erc20/index.js';
 import Satoshi from './satoshi/index.js';
 import Buterin from './buterin/index.js';
 import Ripple from './ripple/index.js';
+import isStrHex from 'isstrhex';
 
 // Require backends
 const proxy_classes = { ERC20, Satoshi, Buterin, Ripple };
@@ -34,15 +35,15 @@ const db = Database(database_path, database_options || {});
 db.exec(schema);
 
 // Prepare statements
-const select_processed_deposits = db.prepare('SELECT * FROM processed_deposits');
-const select_processed_withdrawals = db.prepare('SELECT * FROM processed_withdrawals');
-const select_rejected_withdrawals = db.prepare('SELECT * FROM rejected_withdrawals');
-const insert_processed_deposit = db.prepare('INSERT INTO processed_deposits (json) VALUES (?)');
-const insert_processed_withdrawal = db.prepare('INSERT INTO processed_withdrawals (json) VALUES (?)');
-const insert_rejected_withdrawal = db.prepare('INSERT INTO rejected_withdrawals (json) VALUES (?)');
-const clean_processed_deposits = db.prepare('DELETE FROM processed_deposits');
-const clean_processed_withdrawals = db.prepare('DELETE FROM processed_withdrawals');
-const clean_rejected_withdrawals = db.prepare('DELETE FROM rejected_withdrawals');
+const select_processed_deposits = db.prepare('SELECT * FROM processed_deposits WHERE userId = ? AND coin = ?');
+const select_processed_withdrawals = db.prepare('SELECT * FROM processed_withdrawals WHERE userId = ? AND coin = ?');
+const select_rejected_withdrawals = db.prepare('SELECT * FROM rejected_withdrawals WHERE userId = ? AND coin = ?');
+const insert_processed_deposit = db.prepare('INSERT INTO processed_deposits (userId, coin, json) VALUES (?, ?, ?)');
+const insert_processed_withdrawal = db.prepare('INSERT INTO processed_withdrawals (userId, coin, json) VALUES (?, ?, ?)');
+const insert_rejected_withdrawal = db.prepare('INSERT INTO rejected_withdrawals (userId, coin, json) VALUES (?, ?, ?)');
+const clean_processed_deposits = db.prepare('DELETE FROM processed_deposits WHERE userId = ? AND coin = ?');
+const clean_processed_withdrawals = db.prepare('DELETE FROM processed_withdrawals WHERE userId = ? AND coin = ?');
+const clean_rejected_withdrawals = db.prepare('DELETE FROM rejected_withdrawals WHERE userId = ? AND coin = ?');
 
 // Execution is in progress
 let working = true;
@@ -51,6 +52,11 @@ let working = true;
 const backends = new Map();
 for (const coin of coins) {
     backends.set(coin.name, new proxy_classes[coin.type](coin.options));
+}
+
+function checkUserId(user) {
+    if (!isStrHex(user) || (user.length % 2) != 0)
+        throw new Error('Invalid user identifier');
 }
 
 const process_deposits = async() => {
@@ -74,8 +80,10 @@ const process_deposits = async() => {
 
     // Keep entries in table
     db.transaction(() => {
-        for (const entry of processed)
-            insert_processed_deposit.run(JSON.stringify(entry));
+        for (const entry of processed) {
+            const userId = Buffer.from(entry.userId, 'hex');
+            insert_processed_deposit.run(userId, entry.coin, JSON.stringify(entry));
+        }
     })();
 
     return dirty;
@@ -102,10 +110,14 @@ const process_withdrawals = async() => {
 
     // Keep entries in table
     db.transaction(() => {
-        for (const entry of processed)
-            insert_processed_withdrawal.run(JSON.stringify(entry));
-        for (const entry of rejected)
-            insert_rejected_withdrawal.run(JSON.stringify(entry));
+        for (const entry of processed) {
+            const userId = Buffer.from(entry.userId, 'hex');
+            insert_processed_withdrawal.run(userId, entry.coin, JSON.stringify(entry));
+        }
+        for (const entry of rejected) {
+            const userId = Buffer.from(entry.userId, 'hex');
+            insert_rejected_withdrawal.run(userId, entry.coin, JSON.stringify(entry));
+        }
     })();
 
     return dirty;
@@ -143,36 +155,53 @@ const server = new JSONRPCServer();
 
 // Set handlers
 
-server.addMethod('listProcessedDeposits', db.transaction(() => {
-    const records = select_processed_deposits.all();
-    clean_processed_deposits.run();
+server.addMethod('listProcessedDeposits', db.transaction(({coin, user}) => {
+    // Hex string with even length
+    checkUserId(user);
+
+    const userId = Buffer.from(user, 'hex');
+    const records = select_processed_deposits.all(userId, coin);
+    clean_processed_deposits.run(userId, coin);
     return records.map(({json}) => JSON.parse(json));
 }));
 
-server.addMethod('listProcessedWithdrawals', db.transaction(() => {
-    const records = select_processed_withdrawals.all();
-    clean_processed_withdrawals.run();
+server.addMethod('listProcessedWithdrawals', db.transaction(({coin, user}) => {
+    // Hex string with even length
+    checkUserId(user);
+
+    const userId = Buffer.from(user, 'hex');
+    const records = select_processed_withdrawals.all(userId, coin);
+    clean_processed_withdrawals.run(userId, coin);
     return records.map(({json}) => JSON.parse(json));
 }));
 
-server.addMethod('listRejectedWithdrawals', db.transaction(() => {
-    const records = select_rejected_withdrawals.all();
-    clean_rejected_withdrawals.run();
+server.addMethod('listRejectedWithdrawals', db.transaction(({coin, user}) => {
+    // Hex string with even length
+    checkUserId(user);
+
+    const userId = Buffer.from(user, 'hex');
+    const records = select_rejected_withdrawals.all(userId, coin);
+    clean_rejected_withdrawals.run(userId, coin);
     return records.map(({json}) => JSON.parse(json));
 }));
 
 server.addMethod('setDeposit', ({coin, user, amount}) => {
+    // Hex string with even length
+    checkUserId(user);
+
     const backend = getBackend(coin);
     switch (backend.getDistinction()) {
         case 'address': return backend.getAddress(user);
         case 'amount': return backend.setAwaitingDeposit(user, amount);
         case 'tag': return backend.getTag(user);
-        // TODO: tag distinction
         default: throw new Error('Unknown distinction type');
     }
 });
 
 server.addMethod('deleteDeposit', ({coin, user}) => {
+    // Hex string with even length
+    checkUserId(user);
+
     const backend = getBackend(coin);
     switch (backend.getDistinction()) {
         case 'address': case 'tag':
@@ -185,6 +214,9 @@ server.addMethod('deleteDeposit', ({coin, user}) => {
 });
 
 server.addMethod('getDeposit', ({coin, user}) => {
+    // Hex string with even length
+    checkUserId(user);
+
     const backend = getBackend(coin);
     switch (backend.getDistinction()) {
         case 'address': case 'amount': case 'tag':
@@ -195,8 +227,18 @@ server.addMethod('getDeposit', ({coin, user}) => {
 });
 
 server.addMethod('getProxyInfo', ({coin}) => getBackend(coin).getProxyInfo());
-server.addMethod('getStats', ({coin, user}) => getBackend(coin).getAccountInfo(user));
+
+server.addMethod('getStats', ({coin, user}) => {
+    // Hex string with even length
+    checkUserId(user);
+
+    return getBackend(coin).getAccountInfo(user);
+});
+
 server.addMethod('getAllCoinStats', db.transaction(({user}) => {
+    // Hex string with even length
+    checkUserId(user);
+
     let result = { };
     for (const [coin, backend] of backends.entries()) {
         result[coin] = backend.getAccountInfo(user);
@@ -204,10 +246,33 @@ server.addMethod('getAllCoinStats', db.transaction(({user}) => {
     return result;
 }));
 
-server.addMethod('listDeposits', ({coin, user, skip}) => getBackend(coin).getAccountDeposits(user, skip));
-server.addMethod('listWithdrawals', ({coin, user, skip}) => getBackend(coin).getAccountWithdrawals(user, skip));
-server.addMethod('getPending', ({coin, user}) => getBackend(coin).getAccountPending(user));
-server.addMethod('setPending', ({coin, user, address, amount, tag}) => getBackend(coin).setAccountPending(user, address, amount, tag));
+server.addMethod('listDeposits', ({coin, user, skip}) => {
+    // Hex string with even length
+    checkUserId(user);
+
+    return getBackend(coin).getAccountDeposits(user, skip);
+});
+
+server.addMethod('listWithdrawals', ({coin, user, skip}) => {
+    // Hex string with even length
+    checkUserId(user);
+
+    return getBackend(coin).getAccountWithdrawals(user, skip);
+});
+
+server.addMethod('getPending', ({coin, user}) => {
+    // Hex string with even length
+    checkUserId(user);
+
+    return getBackend(coin).getAccountPending(user);
+});
+
+server.addMethod('setPending', ({coin, user, address, amount, tag}) => {
+    // Hex string with even length
+    checkUserId(user);
+
+    return getBackend(coin).setAccountPending(user, address, amount, tag);
+});
 
 // TODO: More methods
 

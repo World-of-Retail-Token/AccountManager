@@ -6,6 +6,7 @@
   "type": "module",
   "dependencies": {
     "better-sqlite3": "^7.4.1",
+    "isstrhex": "^1.0.5",
     "json-rpc-2.0": "^0.2.16",
     "shutdown-handler": "^1.0.1"
   },

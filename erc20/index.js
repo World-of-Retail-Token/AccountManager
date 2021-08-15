@@ -414,8 +414,9 @@ class ERC20 {
         const bits = 7;
         const bias = 2n ** BigInt(bits);
 
+        const userId = Buffer.from(userIdHex, 'hex');
+
         let amount_in_units;
-        let userId;
 
         // Amount must be decimal
         try {
@@ -427,13 +428,6 @@ class ERC20 {
         // Ensure that deposit value is no less than allowed minimum amount
         if ((amount_in_units + bias) < this.minimum_amount)
             throw new Error('Amount is too small');
-
-        // User id must be hex string
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
 
         // Randomization is performed atomically
         //    to ensure consistent behaviour
@@ -476,15 +470,7 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     getAwaitingDeposits(userIdHex) {
-
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
-
+        const userId = Buffer.from(userIdHex, 'hex');
         let result = this.db.getAwaitingDepositsForId(userId);
         for (let entry of result) {
             delete entry.userId;
@@ -500,13 +486,7 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     deleteAwaitingDeposit(userIdHex) {
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
+        const userId = Buffer.from(userIdHex, 'hex');
         return this.db.deleteAwaitingDepositsForId(userId);
     }
 
@@ -516,14 +496,7 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     getAccountInfo(userIdHex) {
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
-
+        const userId = Buffer.from(userIdHex, 'hex');
         const {deposit, withdrawal} = this.db.getAccountStats(userId)
         return {
             deposit: this.fromBigInt(deposit),
@@ -537,14 +510,7 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     getAccountDeposits(userIdHex, skip = 0) {
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
-
+        const userId = Buffer.from(userIdHex, 'hex');
         let result = this.db.getTransactions(userId, skip);
         for (let entry of result) {
             delete entry.userId;
@@ -561,13 +527,7 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     getAccountWithdrawals(userIdHex, skip = 0) {
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
+        const userId = Buffer.from(userIdHex, 'hex');
         let result = this.db.getWithdrawalTransactions(userId, skip);
         for (let entry of result) {
             delete entry.userId;
@@ -584,13 +544,7 @@ class ERC20 {
      * @userIdHex User identifier in hex encoding
      */
     getAccountPending(userIdHex) {
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
+        const userId = Buffer.from(userIdHex, 'hex');
         let entry = this.db.getAccountPending(userId);
         if (entry) {
             entry.amount = this.fromBigInt(entry.amount);
@@ -611,13 +565,7 @@ class ERC20 {
             throw this.error;
         if (!Web3.utils.isAddress(address))
             throw new Error('Invalid receiving address');
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
+        const userId = Buffer.from(userIdHex, 'hex');
         // Amount must be decimal
         let amount_in_units;
         try {

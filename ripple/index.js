@@ -417,13 +417,7 @@ class Ripple {
     getTag(userIdHex) {
         if (this.error !== null)
             return false;
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
+        const userId = Buffer.from(userIdHex, 'hex');
         let tag = this.db.getTag(userId);
         if (!tag) {
             tag = this.db.insertUserId(userId);
@@ -443,13 +437,7 @@ class Ripple {
      * @userIdHex User identifier in hex encoding
      */
     getAccountInfo(userIdHex) {
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
+        const userId = Buffer.from(userIdHex, 'hex');
         const {deposit, withdrawal} = this.db.getAccountStats(userId)
         return {
             deposit: this.fromBigInt(deposit),
@@ -463,13 +451,7 @@ class Ripple {
      * @userIdHex User identifier in hex encoding
      */
     getAccountDeposits(userIdHex, skip = 0) {
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
+        const userId = Buffer.from(userIdHex, 'hex');
         let result = this.db.getTransactions(userId, skip);
         for (let entry of result) {
             delete entry.userId;
@@ -485,13 +467,7 @@ class Ripple {
      * @userIdHex User identifier in hex encoding
      */
     getAccountWithdrawals(userIdHex, skip = 0) {
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
+        const userId = Buffer.from(userIdHex, 'hex');
         let result = this.db.getWithdrawalTransactions(userId, skip);
         for (let entry of result) {
             delete entry.userId;
@@ -507,13 +483,7 @@ class Ripple {
      * @userIdHex User identifier in hex encoding
      */
     getAccountPending(userIdHex) {
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
+        const userId = Buffer.from(userIdHex, 'hex');
         let entry = this.db.getAccountPending(userId);
         if (entry) {
             entry.amount = this.fromBigInt(entry.amount);
@@ -537,13 +507,7 @@ class Ripple {
             throw new Error('Not initialized yet, please try again a bit later');
         if (tag != undefined && !Number.isInteger(tag))
             throw new Error('Destination tag is not a positive integer');
-        // User id must be hex string
-        let userId;
-        try {
-            userId = Buffer.from(userIdHex, 'hex');
-        } catch(e) {
-            throw new Error('userId is not a valid hex string');
-        }
+        const userId = Buffer.from(userIdHex, 'hex');
         // Amount must be decimal
         let amount_in_drops;
         try {

@@ -315,7 +315,7 @@ class Ripple {
 
                     // Transaction failed
                     console.log('[Withdrawal] Backend returned RPC error on submission');
-                    this.error = new Error(error_message);
+                    this.error = new Error(result.error_message);
                     break;
                 }
 

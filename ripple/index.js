@@ -514,7 +514,7 @@ class Ripple {
         if (this.root_address == undefined)
             throw new Error('Not initialized yet, please try again a bit later');
         const tag = parseInt(memo);
-        if (tag != undefined && (tag.toString() != memo.toString() || tag < 0))
+        if (tag != undefined && tag != '' && (tag.toString() != memo.toString() || tag < 0))
             throw new Error('Destination tag is not a positive integer');
         const userId = Buffer.from(userIdHex, 'hex');
         // Amount must be decimal

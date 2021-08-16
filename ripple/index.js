@@ -283,6 +283,7 @@ class Ripple {
                 const decimalAmountWithFee = this.fromBigInt(transfer_amount);
 
                 console.log('[Withdrawal] Sending %s %s to %s %s from account %s', decimalAmount, this.coin, address, DestinationTag ? ':' + DestinationTag : '', userId.toString('hex'));
+                console.log('[Withdrawal] Root account address is %s', this.root_address);
 
                 const {result} = await got.post(this.backend, {
                     json: {

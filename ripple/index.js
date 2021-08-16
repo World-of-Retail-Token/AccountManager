@@ -438,10 +438,17 @@ class Ripple {
      */
     getAccountInfo(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
-        const {deposit, withdrawal} = this.db.getAccountStats(userId)
+        const {deposit, withdrawal} = this.db.getAccountStats(userId);
+        let pending = this.db.getAccountPending(userId);
+
+        if (pending) {
+            pending.amount = this.fromBigInt(entry.amount);
+            delete pending.userId;
+        }
         return {
             deposit: this.fromBigInt(deposit),
-            withdrawal: this.fromBigInt(withdrawal)
+            withdrawal: this.fromBigInt(withdrawal),
+            pending
         };
     }
 
@@ -498,14 +505,15 @@ class Ripple {
      * @userIdHex User identifier in hex encoding
      * @address Receiver address
      * @amount Payout sum
-     * @tag Destination tag
+     * @memo Destination tag
      */
-    setAccountPending(userIdHex, address, amount, tag) {
+    setAccountPending(userIdHex, address, amount, memo) {
         if (this.error !== null)
             throw this.error;
         if (this.root_address == undefined)
             throw new Error('Not initialized yet, please try again a bit later');
-        if (tag != undefined && !Number.isInteger(tag))
+        const tag = parseInt(memo);
+        if (tag != undefined && (tag.toString() != memo.toString() || tag < 0))
             throw new Error('Destination tag is not a positive integer');
         const userId = Buffer.from(userIdHex, 'hex');
         // Amount must be decimal
@@ -522,7 +530,7 @@ class Ripple {
         this.db.makeTransaction(() => {
             if (undefined !== this.db.getAccountPending(userId))
                 throw new Error('Already have sheduled payout for account ' + userIdHex);
-            this.db.insertPending(userId, address, amount_in_drops.toString(), (tag != undefined) ? tag : -1);
+            this.db.insertPending(userId, address, amount_in_drops.toString(), !isNaN(tag) ? tag : -1);
         })();
         return {address, amount, tag};
     }

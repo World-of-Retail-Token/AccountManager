@@ -498,9 +498,17 @@ class ERC20 {
     getAccountInfo(userIdHex) {
         const userId = Buffer.from(userIdHex, 'hex');
         const {deposit, withdrawal} = this.db.getAccountStats(userId)
+        let pending = this.db.getAccountPending(userId);
+
+        if (pending) {
+            pending.amount = this.fromBigInt(entry.amount);
+            delete pending.userId;
+        }
+
         return {
             deposit: this.fromBigInt(deposit),
-            withdrawal: this.fromBigInt(withdrawal)
+            withdrawal: this.fromBigInt(withdrawal),
+            pending
         };
     }
 

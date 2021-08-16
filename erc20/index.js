@@ -501,7 +501,7 @@ class ERC20 {
         let pending = this.db.getAccountPending(userId);
 
         if (pending) {
-            pending.amount = this.fromBigInt(entry.amount);
+            pending.amount = this.fromBigInt(pending.amount);
             delete pending.userId;
         }
 

@@ -137,10 +137,8 @@ const processing = async () => {
 
 // Init processing timer
 let processing_timer;
-const schedule_processing = () => { processing_timer = setTimeout(processing, 600000); };
+const schedule_processing = () => { processing_timer = setTimeout(processing, 120000); };
 
-// Schedule first call
-schedule_processing();
 
 // Find backend or throw error
 function getBackend(coin) {
@@ -316,7 +314,12 @@ const app = http.createServer(function (request, response) {
     }
 });
 
-app.listen(rpcport, rpchost);
+processing().then(() => {
+    // Schedule calls
+    schedule_processing();
+    // Start server
+    app.listen(rpcport, rpchost);
+});
 
 ShutdownHandler.on('exit', async (e) => {
     e.preventDefault();

@@ -174,7 +174,7 @@ class SatoshiDatabase {
     }
 
     setBackendBalance(balance) {
-        return this.set_backend_balance(balance);
+        return this.set_backend_balance.run(balance);
     }
 
     makeTransaction(executor) {

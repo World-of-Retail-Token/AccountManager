@@ -89,6 +89,37 @@ class Ripple {
         console.log('[Deposit] Checking address %s for new %s deposits', this.root_address, this.coin);
 
         try {
+
+            // Get new account balance
+            let backendBalance;
+            {
+                const {result} = await got.post(this.backend, {
+                    json: {
+                        "method": "account_info",
+                        "params": [
+                            {
+                                "account": this.root_address,
+                                "strict": true,
+                                "ledger_index": "current"
+                            }
+                        ]
+                    }
+                }).json();
+
+                if (!result || result.status !== 'success') {
+                    console.log('Unable to get root account balance');
+                    if (result && result.error_message) {
+                        this.error = new Error(result.error_message);
+                    } else if (result) {
+                        console.log(result);
+                    }
+                    return;
+                }
+
+                // Balance value
+                backendBalance = result.account_data.Balance;
+            }
+
             const limit = 10;
             let working = true;
 
@@ -240,6 +271,7 @@ class Ripple {
                 console.log('[Deposit] Accumulated %d sets of changes to be applied', changes.length);
                 this.db.makeTransaction(() => {
                     for (const tx of changes) tx();
+                    this.db.setBackendBalance(backendBalance);
                 })();
             }
 
@@ -326,6 +358,27 @@ class Ripple {
 
                 // Wait before saving
                 await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Get new account balance
+                let backendBalance;
+                {
+                    const {result} = await got.post(this.backend, {
+                        json: {
+                            "method": "account_info",
+                            "params": [
+                                {
+                                    "account": this.root_address,
+                                    "strict": true,
+                                    "ledger_index": "current"
+                                }
+                            ]
+                        }
+                    }).json();
+
+                    if (result.status !== 'success') {
+                        
+                    }
+                }
 
                 this.db.makeTransaction(() => {
                     // Update account transfer amounts
@@ -530,8 +583,9 @@ class Ripple {
         } catch(e) {
             throw new Error('Amount is either not invalid or not provided');
         }
-        if (amount_in_drops > this.getBalance()) {
-            throw new Error('Insufficient server balance');
+        const backendBalance = this.db.getBackendBalance();
+        if (amount_in_drops > BigInt(backendBalance)) {
+            throw new Error('Insufficient backend balance');
         }
         if (address == this.root_address)
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")

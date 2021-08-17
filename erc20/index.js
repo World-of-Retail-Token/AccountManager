@@ -121,6 +121,9 @@ class ERC20 {
             // ERC20 contract interface
             const contract = new backend.eth.Contract(standardAbi, this.contract_address, {from: this.root_provider.getAddress()});
 
+            // Get root account balance
+            const backendBalance = await contract.methods.balanceOf(this.root_provider.getAddress()).call();
+
             // Request array of indexed transfer events
             const incoming = await listERC20Transactions(backend, contract, this.root_provider.getAddress(), fromBlock, this.confirmations);
             if (0 == incoming.length)
@@ -185,6 +188,9 @@ class ERC20 {
 
                 console.log('[Deposit] Processed deposit transaction %s (%f %s) for account %s', record.transactionHash, decimalAmount, this.coin, userId.toString('hex'));
             }
+
+            // Update account balance
+            this.db.setBackendBalance(backendBalance);
         }
         catch(e) {
             // Fatal error, administrator's involvement is required
@@ -587,8 +593,9 @@ class ERC20 {
         } catch(e) {
             throw new Error('Amount is either not invalid or not provided');
         }
-        if (amount_in_units > this.getBalance()) {
-            throw new Error('Insufficient server balance');
+        const backendBalance = this.db.getBackendBalance();
+        if (amount_in_units > BigInt(backendBalance)) {
+            throw new Error('Insufficient backend balance');
         }
         if (address == this.root_provider.getAddress())
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")

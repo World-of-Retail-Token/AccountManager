@@ -141,10 +141,6 @@ class Buterin {
 
                 console.log('[Deposit] Confirmed in block %d', receipt.blockNumber);
 
-                // Check root account balance
-                const rootBalance = await backend.eth.getBalance(rootAddress);
-                console.log('[Deposit] New root account balance is %s %s', this.fromBigInt(rootBalance), this.coin);
-
                 // Block data object
                 const block = await backend.eth.getBlock(receipt.blockNumber);
 
@@ -184,6 +180,13 @@ class Buterin {
                 })();
 
                 console.log('[Deposit] Processed deposit transaction %s (%f %s) for account %s', receipt.transactionHash, amountDecimal, this.coin, userId.toString('hex'));
+            }
+
+            // Update account balance
+            {
+                // Init new Web3 instance for root HD provider
+                const backend = new Web3(this.root_provider);
+                this.db.setBackendBalance(await backend.eth.getBalance(rootAddress));
             }
         }
         catch(e) {
@@ -532,8 +535,9 @@ class Buterin {
         } catch(e) {
             throw new Error('Amount is either not invalid or not provided');
         }
-        if (amount_in_units > this.getBalance()) {
-            throw new Error('Insufficient server balance');
+        const backendBalance = this.db.getBackendBalance();
+        if (amount_in_units > BigInt(backendBalance)) {
+            throw new Error('Insufficient backend balance');
         }
         if (undefined !== this.db.getUserId(address))
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")

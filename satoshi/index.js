@@ -61,6 +61,8 @@ class Satoshi {
         console.log('[Deposit] Checking for new %s deposits', this.coin);
 
         try {
+            const backendBalance = await this.backend.getBalance();
+
             const count = 10;
             let skip = 0;
             let working = true;
@@ -178,6 +180,7 @@ class Satoshi {
                 console.log('[Deposit] Accumulated %d sets of changes to be applied', changes.length);
                 this.db.makeTransaction(() => {
                     for (const tx of changes) tx();
+                    this.db.setBackendBalance(this.toBigInt(backendBalance).toString());
                 })();
             }
 
@@ -286,6 +289,7 @@ class Satoshi {
                     // Delete pending record for current user
                     this.db.deletePending(userId);
 
+
                     // Insert withdrawal transaction record
                     const txHash = Buffer.from(txid, 'hex');
                     this.db.insertWithdrawalTransaction(userId, amount, txHash, address, Math.floor(Date.now() / 1000));
@@ -301,6 +305,7 @@ class Satoshi {
                 });
 
                 console.log('[Withdrawal] Processed withdrawal transaction %s %s (%s %s) for account %s', txid, address, decimalAmount, this.coin, userId.toString('hex'));
+                console.log('[Withdrawal] New backend balance is %s', backendBalance);
             }
         }
         catch(e) {
@@ -468,8 +473,9 @@ class Satoshi {
         } catch(e) {
             throw new Error('Amount is either not invalid or not provided');
         }
-        if (amount_in_satoshi > this.getBalance()) {
-            throw new Error('Insufficient server balance');
+        const backendBalance = this.db.getBackendBalance();
+        if (amount_in_satoshi > BigInt(backendBalance)) {
+            throw new Error('Insufficient backend balance');
         }
         if (undefined !== this.db.getUserId(address))
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")

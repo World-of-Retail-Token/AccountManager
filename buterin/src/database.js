@@ -24,6 +24,7 @@ class ButerinDatabase {
     select_pending;
     select_account_stats;
     select_global_stats;
+    select_backend_balance;
 
     // Prepared statements for modification
     insert_address;

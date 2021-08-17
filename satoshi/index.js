@@ -348,9 +348,15 @@ class Satoshi {
             globalStats: {
                 deposit: this.fromBigInt(deposit),
                 withdrawal: this.fromBigInt(withdrawal),
-                balance: this.fromBigInt(deposit - withdrawal)
+                balance: this.fromBigInt(BigInt(deposit) - BigInt(withdrawal))
             }
         }
+    }
+
+    getBalance() {
+        // Global transfer statistics
+        const {deposit, withdrawal} = this.db.getGlobalStats();
+        return BigInt(deposit) - BigInt(withdrawal);
     }
 
     /**
@@ -461,6 +467,9 @@ class Satoshi {
             amount_in_satoshi = this.toBigInt(amount);
         } catch(e) {
             throw new Error('Amount is either not invalid or not provided');
+        }
+        if (amount_in_satoshi > this.getBalance()) {
+            throw new Error('Insufficient server balance');
         }
         if (undefined !== this.db.getUserId(address))
             throw new Error("You are trying to pay to managed address. Please don't do that and use coupons instead.")

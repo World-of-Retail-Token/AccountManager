@@ -62,4 +62,11 @@ CREATE TABLE IF NOT EXISTS prefix_global_stats(
 -- Create global stats row
 INSERT INTO prefix_global_stats (deposit, withdrawal) SELECT '0', '0' WHERE NOT EXISTS (SELECT * FROM prefix_global_stats);
 
+CREATE TABLE IF NOT EXISTS prefix_backend_info(
+    balance TEXT NOT NULL
+);
+
+-- Create backend info row
+INSERT INTO prefix_backend_info (balance) SELECT '0' WHERE NOT EXISTS (SELECT * FROM prefix_backend_info);
+
 COMMIT;

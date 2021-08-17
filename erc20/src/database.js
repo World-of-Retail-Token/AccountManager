@@ -23,6 +23,7 @@ class ERC20Database {
     select_pending;
     select_account_stats;
     select_global_stats;
+    select_backend_balance;
 
     // Prepared statements for modification
     insert_address;
@@ -32,6 +33,7 @@ class ERC20Database {
     delete_pending;
     set_account_stats;
     set_global_stats;
+    set_backend_balance;
 
     constructor(config) {
         // 1. We only need fs and path modules once so
@@ -59,6 +61,7 @@ class ERC20Database {
         this.select_account_pending = this.db.prepare('SELECT * FROM ' + config.coin + '_pending WHERE userId = ?');
         this.select_account_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_account_stats WHERE userId = ?');
         this.select_global_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_global_stats');
+        this.select_backend_balance = this.db.prepare('SELECT * FROM ' + config.coin + '_backend_info');
 
         // Modification
         this.insert_awaiting_deposit = this.db.prepare('INSERT INTO ' + config.coin + '_awaiting_deposits (userId, amount) VALUES(?, ?)');
@@ -71,6 +74,7 @@ class ERC20Database {
         this.update_account_stats = this.db.prepare('UPDATE ' + config.coin + '_account_stats SET deposit = ?, withdrawal = ? WHERE userId = ?');
         this.insert_account_stats = this.db.prepare('INSERT INTO ' + config.coin + '_account_stats (userId, deposit, withdrawal) VALUES (?, ?, ?)');
         this.set_global_stats = this.db.prepare('UPDATE ' + config.coin + '_global_stats SET deposit = @deposit, withdrawal = @withdrawal');
+        this.set_backend_balance = this.db.prepare('UPDATE ' + config.coin + '_backend_info SET balance = ?');
     }
 
     getAwaitingDepositUserId(amount) {
@@ -125,6 +129,10 @@ class ERC20Database {
         return this.select_global_stats.get();
     }
 
+    getBackendBalance() {
+        return this.select_backend_balance.get().balance;
+    }
+
     insertAwaitingDeposit(userId, amount) {
         return this.insert_awaiting_deposit.run(userId, amount);
     }
@@ -162,6 +170,10 @@ class ERC20Database {
 
     setGlobalStats(deposit, withdrawal) {
         return this.set_global_stats.run({ deposit : deposit, withdrawal : withdrawal });
+    }
+
+    setBackendBalance(balance) {
+        return this.set_backend_balance(balance);
     }
 
     makeTransaction(executor) {

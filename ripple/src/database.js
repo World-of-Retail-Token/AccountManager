@@ -24,6 +24,7 @@ class RippleDatabase {
     select_pending;
     select_account_stats;
     select_global_stats;
+    select_backend_balance;
 
     // Prepared statements for modification
     insert_userid;
@@ -33,6 +34,7 @@ class RippleDatabase {
     delete_pending;
     set_account_stats;
     set_global_stats;
+    set_backend_balance;
 
     constructor(config) {
         // 1. We only need fs and path modules once so
@@ -60,6 +62,7 @@ class RippleDatabase {
         this.select_account_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_account_stats WHERE userId = ?');
         this.select_global_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_global_stats');
         this.processed_block_exists = this.db.prepare('SELECT EXISTS (SELECT blockHeight FROM ' + config.coin + '_processed_blocks WHERE blockHeight = ?) as found');
+        this.select_backend_balance = this.db.prepare('SELECT * FROM ' + config.coin + '_backend_info');
 
         // Modification
         this.insert_userid = this.db.prepare('INSERT INTO ' + config.coin + '_tags (userId) VALUES(?)');
@@ -72,6 +75,7 @@ class RippleDatabase {
         this.insert_account_stats = this.db.prepare('INSERT INTO ' + config.coin + '_account_stats (userId, deposit, withdrawal) VALUES (?, ?, ?)');
         this.set_global_stats = this.db.prepare('UPDATE ' + config.coin + '_global_stats SET deposit = @deposit, withdrawal = @withdrawal');
         this.insert_processed_block = this.db.prepare('INSERT INTO ' + config.coin + '_processed_blocks (blockHeight) VALUES (?)');
+        this.set_backend_balance = this.db.prepare('UPDATE ' + config.coin + '_backend_info SET balance = ?');
     }
 
     getTag(userId) {
@@ -116,6 +120,10 @@ class RippleDatabase {
         return this.select_global_stats.get();
     }
 
+    getBackendBalance() {
+        return this.select_backend_balance.get().balance;
+    }
+
     checkBlockProcessed(blockHeight) {
         return !!this.processed_block_exists.get(blockHeight).found;
     }
@@ -158,6 +166,10 @@ class RippleDatabase {
 
     insertProcessed(blockHeight) {
         return this.insert_processed_block.run(blockHeight);
+    }
+
+    setBackendBalance(balance) {
+        return this.set_backend_balance(balance);
     }
 
     makeTransaction(executor) {

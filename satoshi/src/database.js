@@ -25,6 +25,7 @@ class SatoshiDatabase {
     select_account_stats;
     select_global_stats;
     select_last_processed;
+    select_backend_balance;
 
     // Prepared statements for modification
     insert_address;
@@ -35,6 +36,7 @@ class SatoshiDatabase {
     set_account_stats;
     set_global_stats;
     set_last_processed;
+    set_backend_balance;
 
     constructor(config) {
         // 1. We only need fs and path modules once so
@@ -62,6 +64,7 @@ class SatoshiDatabase {
         this.select_account_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_account_stats WHERE userId = ?');
         this.select_global_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_global_stats');
         this.processed_block_exists = this.db.prepare('SELECT EXISTS (SELECT blockHeight FROM ' + config.coin + '_processed_blocks WHERE blockHash = ?) as found');
+        this.select_backend_balance = this.db.prepare('SELECT * FROM ' + config.coin + '_backend_info');
 
         // Modification
         this.insert_address = this.db.prepare('INSERT INTO ' + config.coin + '_addresses (userId, address) VALUES(?, ?)');
@@ -74,6 +77,7 @@ class SatoshiDatabase {
         this.insert_account_stats = this.db.prepare('INSERT INTO ' + config.coin + '_account_stats (userId, deposit, withdrawal) VALUES (?, ?, ?)');
         this.set_global_stats = this.db.prepare('UPDATE ' + config.coin + '_global_stats SET deposit = @deposit, withdrawal = @withdrawal');
         this.insert_processed_block = this.db.prepare('INSERT INTO ' + config.coin + '_processed_blocks (blockHash, blockHeight) VALUES (?, ?)');
+        this.set_backend_balance = this.db.prepare('UPDATE ' + config.coin + '_backend_info SET balance = ?');
     }
 
     getAddress(userId) {
@@ -122,6 +126,10 @@ class SatoshiDatabase {
         return this.select_global_stats.get();
     }
 
+    getBackendBalance() {
+        return this.select_backend_balance.get().balance;
+    }
+
     checkBlockProcessed(blockHash) {
         return !!this.processed_block_exists.get(blockHash).found;
     }
@@ -163,6 +171,10 @@ class SatoshiDatabase {
 
     insertProcessed(blockHash, blockHeight) {
         return this.insert_processed_block.run(blockHash, blockHeight);
+    }
+
+    setBackendBalance(balance) {
+        return this.set_backend_balance(balance);
     }
 
     makeTransaction(executor) {

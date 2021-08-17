@@ -332,7 +332,7 @@ ShutdownHandler.on('exit', async (e) => {
 
         // We'we done here
         console.log('Cleanup is done, closing in 2 seconds...');
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 600000));
         process.exit(0);
     });
 });

@@ -392,6 +392,7 @@ class ERC20 {
     getProxyInfo() {
         // Global transfer statistics
         const {deposit, withdrawal} = this.db.getGlobalStats();
+        const pendingSum = this.db.getPendingSum();
 
         return {
             coinType: 'erc20',
@@ -399,8 +400,8 @@ class ERC20 {
             distinction: this.getDistinction(),
             globalStats: {
                 deposit: this.fromBigInt(deposit),
-                withdrawal: this.fromBigInt(withdrawal),
-                balance: this.fromBigInt(BigInt(deposit) - BigInt(withdrawal))
+                withdrawal: this.fromBigInt(withdrawal + BigInt(pendingSum)),
+                balance: this.fromBigInt(BigInt(deposit) - BigInt(withdrawal) - BigInt(pendingSum))
             }
         }
     }
@@ -594,7 +595,8 @@ class ERC20 {
             throw new Error('Amount is either not invalid or not provided');
         }
         const backendBalance = this.db.getBackendBalance();
-        if (amount_in_units > BigInt(backendBalance)) {
+        const pendingSum = this.db.getPendingSum();
+        if (amount_in_units > (BigInt(backendBalance) - BigInt(pendingSum))) {
             throw new Error('Insufficient backend balance');
         }
         if (address == this.root_provider.getAddress())

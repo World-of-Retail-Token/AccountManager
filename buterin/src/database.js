@@ -25,6 +25,7 @@ class ButerinDatabase {
     select_account_stats;
     select_global_stats;
     select_backend_balance;
+    select_pending_sum;
 
     // Prepared statements for modification
     insert_address;
@@ -48,6 +49,14 @@ class ButerinDatabase {
         // Init schema
         this.db.exec(schema);
 
+        // Define bigint sum aggregate
+        this.db.aggregate('bn_sum', {
+            start: 0n,
+            step: (total, nextV) => total + BigInt(nextV),
+            inverse: (total, droppedV) => total - BigInt(droppedV),
+            result: total => total.toString()
+        });
+
         // Init prepared requests
         //
         // Selection
@@ -63,6 +72,7 @@ class ButerinDatabase {
         this.select_account_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_account_stats WHERE userId = ?');
         this.select_global_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_global_stats');
         this.select_backend_balance = this.db.prepare('SELECT * FROM ' + config.coin + '_backend_info');
+        this.select_pending_sum = this.db.prepare('SELECT bn_sum(amount) as pending FROM ' + config.coin + '_pending');
 
         // Modification
         this.insert_address = this.db.prepare('INSERT INTO ' + config.coin + '_addresses (userId, address) VALUES(?, ?)');
@@ -113,6 +123,10 @@ class ButerinDatabase {
 
     getPending() {
         return this.select_pending.all();
+    }
+
+    getPendingSum() {
+       return this.select_pending_sum.get().pending;
     }
 
     getAccountPending(userId) {

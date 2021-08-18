@@ -49,7 +49,7 @@ class Satoshi {
      */
     fromBigInt(units) {
         const s = units.toString().padStart(this.decimals+1, "0");
-        return s.slice(0, -this.decimals) + "." + s.slice(-this.decimals).replace(/\.?0+$/, "");
+        return s.slice(0, -this.decimals) + "." + s.slice(-this.decimals);
     }
 
     async pollBackend(processed = []) {

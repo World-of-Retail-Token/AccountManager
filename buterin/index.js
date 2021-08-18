@@ -17,7 +17,7 @@ class Buterin {
     
     // Web3 connectivity
     provider;
-    
+
     // Root account HD provider
     root_provider;
 
@@ -26,7 +26,7 @@ class Buterin {
 
     // Error object
     error = null;
-    
+
     /**
      * Convert decimal string or float value to bigint representation
      * @amount Value to be converted
@@ -412,7 +412,7 @@ class Buterin {
             distinction: this.getDistinction(),
             globalStats: {
                 deposit: this.fromBigInt(deposit),
-                withdrawal: this.fromBigInt(withdrawal + BigInt(pendingSum)),
+                withdrawal: this.fromBigInt(BigInt(withdrawal) + BigInt(pendingSum)),
                 balance: this.fromBigInt(BigInt(deposit) - BigInt(withdrawal) - BigInt(pendingSum))
             }
         }

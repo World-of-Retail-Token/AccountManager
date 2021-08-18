@@ -19,6 +19,9 @@ class Satoshi {
     // Coin denomination
     decimals;
 
+    // Numbers are truncated (false) or rounded (true)
+    rounded = true;
+
     // Coin name
     coin;
 
@@ -36,9 +39,8 @@ class Satoshi {
      * @amount Value to be converted
      */
     toBigInt(amount) {
-        let [ints, decis] = String(amount.toString()).split(".").concat("");
-        decis = decis.padEnd(this.decimals, "0");
-        return BigInt(ints + decis);
+        let [ints, decis] = String(amount).split(".").concat("");
+        return BigInt(ints + decis.padEnd(this.decimals, "0").slice(0, this.decimals)) + BigInt(this.rounded && decis[this.decimals] >= "5");
     }
 
     /**
@@ -46,8 +48,8 @@ class Satoshi {
      * @amount Value to be converted
      */
     fromBigInt(units) {
-        const s = units.toString().padStart(this.decimals + 1, "0");
-        return s.slice(0, -this.decimals) + "." + s.slice(-this.decimals);
+        const s = units.toString().padStart(this.decimals+1, "0");
+        return s.slice(0, -this.decimals) + "." + s.slice(-this.decimals).replace(/\.?0+$/, "");
     }
 
     async pollBackend(processed = []) {
@@ -347,13 +349,15 @@ class Satoshi {
         const {deposit, withdrawal} = this.db.getGlobalStats();
         const pendingSum = this.db.getPendingSum();
 
+        console.log(pendingSum);
+
         return {
             coinType: 'satoshi',
             coinDecimals: this.decimals,
             distinction: this.getDistinction(),
             globalStats: {
                 deposit: this.fromBigInt(deposit),
-                withdrawal: this.fromBigInt(withdrawal + BigInt(pendingSum)),
+                withdrawal: this.fromBigInt(BigInt(withdrawal) + BigInt(pendingSum)),
                 balance: this.fromBigInt(BigInt(deposit) - BigInt(withdrawal) - BigInt(pendingSum))
             }
         }

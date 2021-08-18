@@ -349,8 +349,6 @@ class Satoshi {
         const {deposit, withdrawal} = this.db.getGlobalStats();
         const pendingSum = this.db.getPendingSum();
 
-        console.log(pendingSum);
-
         return {
             coinType: 'satoshi',
             coinDecimals: this.decimals,

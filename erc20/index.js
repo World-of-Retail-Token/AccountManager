@@ -364,7 +364,10 @@ class ERC20 {
         this.db = new ERC20Database(config);
 
         // Web3 provider
-        const provider = new Web3.providers.WebsocketProvider(config.web3_url);
+        const provider = new Web3.providers.WebsocketProvider(config.web3_url, { clientConfig: {
+            keepalive: true,
+            keepaliveInterval: 60000
+        }});
 
         // Init root provider
         this.root_provider = new HDWalletProvider({mnemonic: config.mnemonic, providerOrUrl: provider, addressIndex: 0});

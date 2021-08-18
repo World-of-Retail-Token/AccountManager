@@ -376,7 +376,10 @@ class Buterin {
         this.db = new ButerinDatabase(config);
 
         // Init backend connection provider
-        this.provider = new Web3.providers.WebsocketProvider(config.web3_url);
+        this.provider = new Web3.providers.WebsocketProvider(config.web3_url, { clientConfig: {
+            keepalive: true,
+            keepaliveInterval: 60000
+        }});
 
         // Remember limits
         this.minimum_amount = this.toBigInt(config.minimum_amount || 0.0001);

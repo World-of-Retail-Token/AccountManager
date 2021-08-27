@@ -35,12 +35,18 @@ const db = Database(database_path, database_options || {});
 db.exec(schema);
 
 // Prepare statements
+const select_all_processed_deposits = db.prepare('SELECT * FROM processed_deposits WHERE coin = ?');
+const select_all_processed_withdrawals = db.prepare('SELECT * FROM processed_withdrawals WHERE coin = ?');
+const select_all_rejected_withdrawals = db.prepare('SELECT * FROM rejected_withdrawals WHERE coin = ?');
 const select_processed_deposits = db.prepare('SELECT * FROM processed_deposits WHERE userId = ? AND coin = ?');
 const select_processed_withdrawals = db.prepare('SELECT * FROM processed_withdrawals WHERE userId = ? AND coin = ?');
 const select_rejected_withdrawals = db.prepare('SELECT * FROM rejected_withdrawals WHERE userId = ? AND coin = ?');
 const insert_processed_deposit = db.prepare('INSERT INTO processed_deposits (userId, coin, json) VALUES (?, ?, ?)');
 const insert_processed_withdrawal = db.prepare('INSERT INTO processed_withdrawals (userId, coin, json) VALUES (?, ?, ?)');
 const insert_rejected_withdrawal = db.prepare('INSERT INTO rejected_withdrawals (userId, coin, json) VALUES (?, ?, ?)');
+const clean_all_processed_deposits = db.prepare('DELETE FROM processed_deposits WHERE coin = ?');
+const clean_all_processed_withdrawals = db.prepare('DELETE FROM processed_withdrawals WHERE coin = ?');
+const clean_all_rejected_withdrawals = db.prepare('DELETE FROM rejected_withdrawals WHERE coin = ?');
 const clean_processed_deposits = db.prepare('DELETE FROM processed_deposits WHERE userId = ? AND coin = ?');
 const clean_processed_withdrawals = db.prepare('DELETE FROM processed_withdrawals WHERE userId = ? AND coin = ?');
 const clean_rejected_withdrawals = db.prepare('DELETE FROM rejected_withdrawals WHERE userId = ? AND coin = ?');
@@ -182,6 +188,24 @@ server.addMethod('listRejectedWithdrawals', db.transaction(({coin, user}) => {
     const userId = Buffer.from(user, 'hex');
     const records = select_rejected_withdrawals.all(userId, coin);
     clean_rejected_withdrawals.run(userId, coin);
+    return records.map(({json}) => JSON.parse(json));
+}));
+
+server.addMethod('listAllProcessedDeposits', db.transaction(({coin}) => {
+    const records = select_all_processed_deposits.all(coin);
+    clean_all_processed_deposits.run(coin);
+    return records.map(({json}) => JSON.parse(json));
+}));
+
+server.addMethod('listAllProcessedWithdrawals', db.transaction(({coin}) => {
+    const records = select_processed_withdrawals.all(coin);
+    clean_all_processed_withdrawals.run(coin);
+    return records.map(({json}) => JSON.parse(json));
+}));
+
+server.addMethod('listAllRejectedWithdrawals', db.transaction(({coin}) => {
+    const records = select_rejected_withdrawals.all(coin);
+    clean_all_rejected_withdrawals.run(coin);
     return records.map(({json}) => JSON.parse(json));
 }));
 

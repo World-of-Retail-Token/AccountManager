@@ -126,3 +126,83 @@ Account stats may be retrieved by calling ```getStats``` method. You need to pro
 ## Requesting backend details
 
 Backend information may be received by executing ```getProxyInfo``` method with ```coin``` argument. Resulting object will contain information about backend type, deposit distinction type, minimum deposit value and static withdrawal fee.
+
+# Example configuration
+
+Your config.js may look like this:
+
+```'use strict';
+
+// RPC interface host and port
+// WARNING: make sure that these address and port ARE NOT publicly available. It is unless you purposely WANT to be sucked dry, of course.
+
+const rpchost = '127.0.0.1';
+const rpcport = 3333;
+
+const database_path = './database.db';
+const database_options = {};
+
+const coins = [
+    {
+        name: 'BTC',
+        type: 'Satoshi',
+        options: {
+            coin: 'BTC',
+            decimals: 8,
+            database_path,
+            backend_options: {
+                host: '127.0.0.1',
+                port: 8332,
+                username: 'bitcoinrpc',
+                password: 'bitcoin_rpc_password',
+                unlock_password: 'WALLET_UNLOCK_PASSSPHRASE', // Optional, omit if wallet is not encrypted
+                version: `${Number.MAX_SAFE_INTEGER}.0.0`
+            },
+            minimum_amount: 0.00001,
+            minimum_confirmations: 3, // Minimum confirmation before payment will be considered immutable and suitable to be processed
+            static_fee: 0.0001, // Deduct 0.0001 BTC from any payment as a static fee
+        }
+    },
+    {
+        name: 'ETH',
+        type: 'Buterin',
+        options: {
+            coin: 'ETH',
+            database_path,
+            web3_url: 'wss://mainnet.infura.io/ws/v3/infura_account_id',
+            mnemonic: 'word word word word word word word word word word word word', // Ethereum wallet mnemonic
+            minimum_amount: 0.001,
+            static_fee: 0.0001,
+        }
+    },
+    {
+        name: 'USDT',
+        type: 'ERC20',
+        options: {
+            coin: 'USDT',
+            decimals: 6,
+            database_path,
+            contract_address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+            web3_url: 'wss://mainnet.infura.io/ws/v3/infura_account_id',
+            mnemonic: 'word word word word word word word word word word word word', // It is recommended to provide the same mnemonic as with ETH to ensure that you have some ETH to pay for consumed gas
+            minimum_amount: 0.001, 
+            static_fee: 1, // Deduct 1 USDT as static fee for all payments
+        }
+    },
+    {
+        name: 'XRP',
+        type: 'Ripple',
+        options: {
+            coin: 'XRP',
+            decimals: 6,
+            database_path,
+            backend_url: 'http://127.0.0.1:8080/',
+            mnemonic: 'WORD WORD WORD WORD WORD WORD WORD WORD WORD WORD WORD WORD',
+            minimum_amount: 0.01,
+            static_fee: 1, // Deduct 1 XRP as static fee for all payments (yep, maybe too much but you're free to set whatever value you want)
+        }
+    }
+];
+
+export { rpchost, rpcport, database_path, database_options, coins };
+```

@@ -471,6 +471,20 @@ class Buterin {
     }
 
     /**
+     * Get fund transfer statistics for all known accounts
+     */
+    getAccountsInfo() {
+        let result = this.db.getAccountsStats();
+        for (let entry of result) {
+            entry.userId = entry.userId.toString('hex');
+            entry.deposit = this.fromBigInt(entry.deposit);
+            entry.withdrawal = this.fromBigInt(entry.withdrawal);
+            entry.pending = this.fromBigInt(entry.pending);
+        }
+        return result;
+    }
+
+    /**
      * Get list of completed deposits for given account
      *
      * @userIdHex User identifier in hex encoding

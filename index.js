@@ -270,6 +270,10 @@ server.addMethod('getAllCoinStats', db.transaction(({user}) => {
     return result;
 }));
 
+server.addMethod('getAllUserStats', ({coin}) => {
+    return getBackend(coin).getAccountsInfo();
+});
+
 server.addMethod('listDeposits', ({coin, user, skip}) => {
     // Hex string with even length
     checkUserId(user);

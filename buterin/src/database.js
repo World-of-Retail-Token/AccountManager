@@ -23,6 +23,7 @@ class ButerinDatabase {
     select_transactions;
     select_pending;
     select_account_stats;
+    select_accounts_stats;
     select_global_stats;
     select_backend_balance;
     select_pending_sum;
@@ -70,6 +71,7 @@ class ButerinDatabase {
         this.select_pending = this.db.prepare('SELECT * FROM ' + config.coin + '_pending');
         this.select_account_pending = this.db.prepare('SELECT * FROM ' + config.coin + '_pending WHERE userId = ?');
         this.select_account_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_account_stats WHERE userId = ?');
+        this.select_accounts_stats = this.db.prepare('SELECT a.userId, a.deposit, a.withdrawal, COALESCE(p.amount, \'0\') AS pending FROM ' + config.coin + '_account_stats a LEFT JOIN ' + config.coin + '_pending p ON a.userId = p.userId');
         this.select_global_stats = this.db.prepare('SELECT * FROM ' + config.coin + '_global_stats');
         this.select_backend_balance = this.db.prepare('SELECT * FROM ' + config.coin + '_backend_info');
         this.select_pending_sum = this.db.prepare('SELECT bn_sum(amount) as pending FROM ' + config.coin + '_pending');
@@ -137,6 +139,10 @@ class ButerinDatabase {
         const record = this.select_account_stats.get(userId);
         if (!record) return { deposit: '0', withdrawal: '0' };
         return record;
+    }
+
+    getAccountsStats() {
+        return this.select_accounts_stats.all();
     }
 
     getGlobalStats() {

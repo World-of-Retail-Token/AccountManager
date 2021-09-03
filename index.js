@@ -198,13 +198,13 @@ server.addMethod('listAllProcessedDeposits', db.transaction(({coin}) => {
 }));
 
 server.addMethod('listAllProcessedWithdrawals', db.transaction(({coin}) => {
-    const records = select_processed_withdrawals.all(coin);
+    const records = select_all_processed_withdrawals.all(coin);
     clean_all_processed_withdrawals.run(coin);
     return records.map(({json}) => JSON.parse(json));
 }));
 
 server.addMethod('listAllRejectedWithdrawals', db.transaction(({coin}) => {
-    const records = select_rejected_withdrawals.all(coin);
+    const records = select_all_rejected_withdrawals.all(coin);
     clean_all_rejected_withdrawals.run(coin);
     return records.map(({json}) => JSON.parse(json));
 }));

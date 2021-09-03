@@ -23,11 +23,11 @@ Users are identified by hexadecimal strings which must have even length. Samples
 
 ```listAllRejectedWithdrawals(coin)``` - Get a list of all rejected withdrawals for ```coin```.
 
-Lists are being returned only once and will be removed from database once returned to method caller.
-
 Lists are returned in form of array of objects containing operation details: transaction hash, user identifier, transaction amount, transaction fee etc.
 
 These methods are purposed to synchronize user balances in the local application database with blockchain-specific actions. For example, if there is a deposit then you need to increase account balance and you may do it according to information provided by ```listProcessedDeposits``` method. Or, if some withdrawal requests have failed then money need to be accounted back to corresponding users. There are ```listRejectedWithdrawals``` and ```listAllRejectedWithdrawals``` methods for exactly this purpose.
+
+Lists are being returned only once and will be removed from database once returned to method caller. Selection and deletion are guaranteed to be performed atomically on the server-side.
 
 ## Scheduling a deposit
 

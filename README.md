@@ -118,3 +118,11 @@ List of withdrawal transactions may be retrieved via calling a ```listWithdrawal
 If ```skip``` argument is omitted then only last 100 records will be returned.
 
 Lists are returned in form of array of objects containing operation details: transaction hash, user identifier, transaction amount, etc.
+
+## Requesting account stats
+
+Account stats may be retrieved by calling ```getStats``` method. You need to provide ```coin``` and ```user``` arguments. Resulting object will contain backend details along with accumilated deposit and withdrawal amounts for specified account.
+
+## Requesting backend details
+
+Backend information may be received by executing ```getProxyInfo``` method with ```coin``` argument. Resulting object will contain information about backend type, deposit distinction type, minimum deposit value and static withdrawal fee.

@@ -3,7 +3,7 @@ Account management for various crypto coins
 
 # What does it do
 
-This software is intended to provide simple and universal abstraction layer to work with different underlying cryptocurrency daemons. Internal implementation workings are hidden behind RPC services.
+This software is intended to provide a simple and universal abstraction layer to work with different underlying cryptocurrency daemons. Internal implementation workings are hidden behind RPC services.
 
 # API
 
@@ -17,19 +17,17 @@ Users are identified by hexadecimal strings which must have even length. Samples
 
 ```listProcessedDeposits(coin, user)``` - Get a list of successfully processed deposits of ```coin``` for ```user```.
 
-```listProcessedWithdrawals(coin, user)``` - Get a list of successfully processed withdrawals of ```coin``` for ```user```. 
-
 ```listRejectedWithdrawals(coin, user)``` - Get a list of rejected withdrawals of ```coin``` for ```user```. 
 
 ```listAllProcessedDeposits(coin, user)``` - Get a list of all successfully processed deposits for ```coin```.
-
-```listAllProcessedWithdrawals(coin)``` - Get a list of all successfully processed withdrawals for ```coin```.
 
 ```listAllRejectedWithdrawals(coin)``` - Get a list of all rejected withdrawals for ```coin```.
 
 Lists are being returned only once and will be removed from database once returned to method caller.
 
 Lists are returned in form of array of objects containing operation details: transaction hash, user identifier, transaction amount, transaction fee etc.
+
+These methods are purposed to synchronize user balances in the local application database with blockchain-specific actions. For example, if there is a deposit then you need to increase account balance and you may do it according to information provided by ```listProcessedDeposits``` method. Or, if some withdrawal requests have failed then money need to be accounted back to corresponding users. There are ```listRejectedWithdrawals``` and ```listAllRejectedWithdrawals``` methods for exactly this purpose.
 
 ## Scheduling a deposit
 

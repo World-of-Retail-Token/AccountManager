@@ -7,6 +7,12 @@ This software is intended to provide simple and universal abstraction layer to w
 
 # API
 
+## Common information
+
+Currencies are identified by cryptocurrency ticker which is defined in the server configuration file. It basically can be anything but it makes sense to use something common e.g. BTC, XRP, ETH or whatever.
+
+Users are identified by hexadecimal strings which must have even length. Samples of correct user identifier are looking like '23a0e5ea9dd56f725c2d'. It makes a sense to use the hex-encoded sha256 hash of user login or something like that.
+
 ## Requesting on-chain operation details
 
 ```listProcessedDeposits(coin, user)``` - Get a list of successfully processed deposits of ```coin``` for ```user```.

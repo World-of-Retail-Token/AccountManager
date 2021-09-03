@@ -9,17 +9,17 @@ This software is intended to provide simple and universal abstraction layer to w
 
 ## Requesting on-chain operation details
 
-```listProcessedDeposits(coin, userID)``` - Get a list of successfully processed deposits of ```coin``` for ```userID```.
+```listProcessedDeposits(coin, user)``` - Get a list of successfully processed deposits of ```coin``` for ```user```.
 
-```listAllProcessedDeposits(coin, userID)``` - Get a list of all successfully processed deposits for ```coin```.
+```listProcessedWithdrawals(coin, user)``` - Get a list of successfully processed withdrawals of ```coin``` for ```user```. 
 
-```listProcessedWithdrawals(coin, userID)``` - Get a list of successfully processed withdrawals of ```coin``` for ```userID```. 
+```listRejectedWithdrawals(coin, user)``` - Get a list of rejected withdrawals of ```coin``` for ```user```. 
 
-```listRejectedWithdrawals(coin, userID)``` - Get a list of rejected withdrawals of ```coin``` for ```userID```. 
+```listAllProcessedDeposits(coin, user)``` - Get a list of all successfully processed deposits for ```coin```.
 
-```listAllProcessedWithdrawals(coin, userID)``` - Get a list of all successfully processed withdrawals for ```coin```.
+```listAllProcessedWithdrawals(coin)``` - Get a list of all successfully processed withdrawals for ```coin```.
 
-```listAllRejectedWithdrawals(coin, userID)``` - Get a list of all rejected withdrawals for ```coin```.
+```listAllRejectedWithdrawals(coin)``` - Get a list of all rejected withdrawals for ```coin```.
 
 Lists are being returned only once and will be removed from database once returned to method caller.
 

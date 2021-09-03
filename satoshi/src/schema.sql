@@ -55,6 +55,9 @@ CREATE TABLE IF NOT EXISTS prefix_pending(
     address TEXT NOT NULL
 );
 
+-- Only one pending payment per user is allowed
+CREATE UNIQUE INDEX IF NOT EXISTS prefix_pending_uniqualizer ON prefix_pending(userId);
+
 -- Accumulated account-specific amounts of fund movement
 CREATE TABLE IF NOT EXISTS prefix_account_stats(
     userId BLOB PRIMARY KEY ON CONFLICT IGNORE,
